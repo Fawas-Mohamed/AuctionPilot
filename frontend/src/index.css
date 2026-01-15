@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 25% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 10%;
+
+    --primary: 220 45% 15%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 220 25% 10%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 15% 45%;
+
+    --accent: 45 85% 55%;
+    --accent-foreground: 220 25% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 214 25% 88%;
+    --input: 214 25% 88%;
+    --ring: 220 45% 15%;
+
+    /* Auction-specific colors */
+    --auction-gold: 45 85% 55%;
+    --auction-gold-light: 45 85% 70%;
+    --auction-navy: 220 45% 15%;
+    --auction-navy-light: 220 35% 25%;
+    --auction-silver: 210 15% 85%;
+    --auction-premium: 280 60% 25%;
+    
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(var(--auction-navy)), hsl(var(--auction-navy-light)));
+    --gradient-gold: linear-gradient(135deg, hsl(var(--auction-gold)), hsl(var(--auction-gold-light)));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 20% 98%));
+    
+    /* Shadows */
+    --shadow-elegant: 0 10px 40px -10px hsl(var(--auction-navy) / 0.2);
+    --shadow-gold: 0 5px 25px -5px hsl(var(--auction-gold) / 0.3);
+    --shadow-premium: 0 20px 60px -10px hsl(var(--auction-navy) / 0.3);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 220 25% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 220 25% 10%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 220 25% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 45 85% 55%;
+    --primary-foreground: 220 25% 10%;
+
+    --secondary: 220 20% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 220 20% 15%;
+    --muted-foreground: 215 15% 65%;
+
+    --accent: 45 85% 55%;
+    --accent-foreground: 220 25% 10%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 20% 20%;
+    --input: 220 20% 20%;
+    --ring: 45 85% 55%;
+
+    /* Dark mode auction colors */
+    --auction-gold: 45 85% 60%;
+    --auction-gold-light: 45 85% 75%;
+    --auction-navy: 220 25% 8%;
+    --auction-navy-light: 220 20% 15%;
+    --auction-silver: 210 15% 25%;
+    --auction-premium: 280 60% 35%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  
+  .auction-gradient-hero {
+    background: var(--gradient-hero);
+  }
+  
+  .auction-gradient-gold {
+    background: var(--gradient-gold);
+  }
+  
+  .auction-gradient-card {
+    background: var(--gradient-card);
+  }
+  
+  .auction-shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
+  
+  .auction-shadow-gold {
+    box-shadow: var(--shadow-gold);
+  }
+  
+  .auction-shadow-premium {
+    box-shadow: var(--shadow-premium);
+  }
+  
+  .auction-transition {
+    transition: var(--transition-smooth);
+  }
+  
+  .auction-spring {
+    transition: var(--transition-spring);
+  }
+}
+@keyframes fadeLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-left {
+  animation: fadeLeft 0.9s ease-out forwards;
+}
+
+.animate-fade-right {
+  animation: fadeRight 0.9s ease-out forwards;
+}
+
+.delay-150 {
+  animation-delay: 0.15s;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
+}
