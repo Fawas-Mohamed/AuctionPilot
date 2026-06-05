@@ -82,7 +82,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="live" element={<LiveAuction />} />
                 <Route path="calendar" element={<AuctionCalendar />} />
                 <Route path="past-auctions" element={<PastAuctions />} />
-                <Route path="hii" element={<AuctionsPage />} />
+                <Route path="auctionpage" element={<AuctionsPage />} />
                 <Route path="hello" element={<CreateConsignment />} />
                 <Route path="watchlist" element={<Watchlist />} />
                 <Route path="auctionmanage" element={<AdminAuctions />} />

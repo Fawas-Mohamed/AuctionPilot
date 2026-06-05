@@ -23,7 +23,12 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddDefaultTokenProviders();
 
 // JWT Auth
-var key = Encoding.UTF8.GetBytes(config["Jwt:Key"] ?? "CHANGE_THIS_TO_A_STRONG_KEY_32_PLUS_CHARS");
+var jwtKey = config["Jwt:Key"];
+
+if (string.IsNullOrEmpty(jwtKey))
+    throw new Exception("JWT Key is missing in appsettings.json");
+
+var key = Encoding.UTF8.GetBytes(jwtKey);
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -85,11 +90,11 @@ var allowedOrigins = new[] {
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("DevCors", p =>
-        p.WithOrigins(allowedOrigins)
-         .AllowAnyHeader()
-         .AllowAnyMethod()
-         .AllowCredentials());
+    options.AddPolicy("DevCors", policy =>
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials());
 });
 
 builder.Services.AddControllers().AddJsonOptions(opts =>
@@ -195,20 +200,15 @@ app.UseSwaggerUI();
 app.UseRouting();
 
 // Apply CORS BEFORE authentication & before endpoints
-app.UseCors(builder =>
-    builder.WithOrigins("http://localhost:5173") // Vite dev
-           .AllowAnyHeader()
-           .AllowAnyMethod()
-           .AllowCredentials());
+app.UseCors("DevCors");
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
 // Serve static files so uploaded images under wwwroot/uploads are reachable
-app.UseStaticFiles();
+
 
 app.MapControllers();
 app.MapHub<AuctionHub>("/hubs/auction");

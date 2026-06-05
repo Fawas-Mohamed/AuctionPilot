@@ -326,7 +326,7 @@ const Index = () => {
 
           </div>
           <div className="text-center mt-12">
-            <Link to="/hii">
+            <Link to="/auctionpage">
               <Button variant="gold" size="lg">
                 View All Auctions
                 <ArrowRight className="ml-2 h-5 w-5" />

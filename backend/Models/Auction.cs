@@ -25,8 +25,7 @@ namespace AuctionApi.Models
 
         public bool IsClosed { get; set; } = false;   
         public string? WinnerUserId { get; set; }     
-        public decimal? ReservePrice { get; set; }    
-       
+        public decimal? ReservePrice { get; set; }
         public string? CreatedById { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

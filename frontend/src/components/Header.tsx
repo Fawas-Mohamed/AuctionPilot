@@ -108,9 +108,9 @@ useEffect(() => {
               Home
             </Link>
             <Link
-              to="/hii"
+              to="/auctionpage"
               className={`auction-transition hover:text-auction-gold ${
-                isActive("/hii") ? "text-auction-gold font-semibold" : "text-foreground"
+                isActive("/auctionpage") ? "text-auction-gold font-semibold" : "text-foreground"
               }`}
             >
               Auctions
