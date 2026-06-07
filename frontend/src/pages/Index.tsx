@@ -14,6 +14,7 @@ import { Category } from "@/lib/useCategories";
 import axios from "axios";
 import Auctions from "./Auctions";
 import { formatServerUtc, parseServerUtcToDate } from "@/utils/formatServerUtc";
+import api from "@/lib/api";
 
 // backend response type
 interface Auction {
@@ -62,7 +63,7 @@ const Index = () => {
 
   const fetchAuctions = async () => {
     try{
-      const res = await axios.get<Auction[]>("https://localhost:62628/api/Auctions/latest");
+      const res = await api.get("/Auctions/latest");
       setAuctions(res.data ?? []);
     }catch(err){
       console.error("Failed to load auctions", err);

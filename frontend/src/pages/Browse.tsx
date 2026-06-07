@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Users, Clock, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import api from "@/lib/api";
 
 interface Category {
   id: number;
@@ -59,7 +60,7 @@ const AuctionsPage: React.FC = () => {
 
   const fetchAuctions = async () => {
     try {
-      const res = await axios.get<Auction[]>("https://localhost:62628/api/auctions");
+      const res = await api.get("/auctions");
       setAuctions(res.data ?? []);
     } catch (err) {
       console.error("Failed to load auctions", err);
@@ -68,7 +69,7 @@ const AuctionsPage: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get<Category[]>("https://localhost:62628/api/categories");
+      const res = await api.get("/categories");
       setCategories(res.data ?? []);
     } catch (err) {
       console.warn("Failed to load categories", err);
