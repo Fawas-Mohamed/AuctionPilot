@@ -4,6 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import paintingImage from "@/assets/painting-auction.jpg";
+import jewelryImage from "@/assets/jewelry-auction.jpg";
+import watchImage from "@/assets/jewelry-auction.jpg";
+import heroImage from "@/assets/auction-hero.jpg";
 
 const categories = [
   {
@@ -11,7 +15,7 @@ const categories = [
     name: "Fine Art",
     description: "Paintings, sculptures, and contemporary art pieces",
     itemCount: 234,
-    image: "/src/assets/painting-auction.jpg",
+    image: paintingImage,
     featured: true
   },
   {
@@ -19,7 +23,7 @@ const categories = [
     name: "Jewelry & Watches",
     description: "Luxury timepieces, diamond jewelry, and precious stones",
     itemCount: 156,
-    image: "/src/assets/jewelry-auction.jpg",
+    image: jewelryImage,
     featured: true
   },
   {
@@ -27,7 +31,7 @@ const categories = [
     name: "Collectibles",
     description: "Rare coins, stamps, vintage toys, and memorabilia",
     itemCount: 89,
-    image: "/src/assets/watch-auction.jpg",
+    image: watchImage,
     featured: false
   },
   {
@@ -35,7 +39,7 @@ const categories = [
     name: "Antiques",
     description: "Furniture, ceramics, glassware, and historical artifacts",
     itemCount: 167,
-    image: "/src/assets/auction-hero.jpg",
+    image: heroImage,
     featured: false
   },
   {
@@ -43,7 +47,7 @@ const categories = [
     name: "Wine & Spirits",
     description: "Vintage wines, rare whiskeys, and premium spirits",
     itemCount: 78,
-    image: "/src/assets/painting-auction.jpg",
+    image: paintingImage,
     featured: false
   },
   {
@@ -51,7 +55,7 @@ const categories = [
     name: "Sports Memorabilia",
     description: "Autographed items, vintage equipment, and trading cards",
     itemCount: 134,
-    image: "/src/assets/jewelry-auction.jpg",
+    image: jewelryImage,
     featured: false
   }
 ];
