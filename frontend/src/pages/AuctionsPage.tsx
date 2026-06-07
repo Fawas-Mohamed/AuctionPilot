@@ -1,6 +1,6 @@
 // src/pages/AuctionsPage.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "@/lib/api";
 import { HubConnectionBuilder, HubConnection } from "@microsoft/signalr";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,7 +53,7 @@ const AuctionsPage: React.FC = () => {
   const normalizeImage = (imageUrl: string | null | undefined) => {
     if (!imageUrl) return null;
     if (imageUrl.startsWith("http")) return imageUrl;
-    return `https://localhost:62628${imageUrl}`;
+    return `${apiBase}${imageUrl}`;
   };
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -119,7 +119,7 @@ useEffect(() => {
 
   const fetchAuctions = async () => {
     try {
-      const res = await axios.get<Auction[]>("https://localhost:62628/api/auctions");
+      const res = await api.get("/auctions");
       setAuctions(res.data ?? []);
     } catch (err) {
       console.error("Failed to load auctions", err);
@@ -128,7 +128,7 @@ useEffect(() => {
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get<Category[]>("https://localhost:62628/api/categories");
+      const res = await api.get("/categories");
       setCategories(res.data ?? []);
     } catch (err) {
       console.warn("Failed to load categories", err);
