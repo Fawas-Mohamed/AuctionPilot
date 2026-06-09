@@ -4,6 +4,7 @@ import { Footer } from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import founderImage from "@/assets/founder.jpg";
 
 const AboutUs = () => {
   const values = [
@@ -115,7 +116,7 @@ const AboutUs = () => {
                 </div>
                 <div className="relative">
                   <img
-                    src="\src\assets\founder.jpg"
+                    src={founderImage}
                     alt="Auction house gallery"
                     className="rounded-lg shadow-2xl"/>
                   <div className="absolute -bottom-6 -right-6 bg-auction-gold p-6 rounded-lg shadow-lg">
