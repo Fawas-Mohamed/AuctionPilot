@@ -1,4 +1,29 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Build output
 bin/
 obj/
-.vs/
+**/bin/
+**/obj/
+
+# ASP.NET publish files
+PublishProfiles/
+*.pubxml
+
+# User uploads
+wwwroot/uploads/
+
+
+# Logs
+*.log
+
+# Development settings
 appsettings.Development.json
+
+
+# OS files
+.DS_Store
+Thumbs.db

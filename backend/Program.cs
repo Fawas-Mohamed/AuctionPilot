@@ -121,76 +121,78 @@ builder.Services.AddHostedService<AuctionCloserHostedService>();
 var app = builder.Build();
 
 // Apply migrations & seed at startup (dev convenience)
-using (var scope = app.Services.CreateScope())
+try
 {
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();
+    using var scope = app.Services.CreateScope();
 
-    var um = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    var rm = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var logger = scope.ServiceProvider
+        .GetRequiredService<ILogger<Program>>();
 
-    if (!rm.RoleExistsAsync("Admin").Result)
+    var db = scope.ServiceProvider
+        .GetRequiredService<ApplicationDbContext>();
+
+    logger.LogInformation("Applying database migrations...");
+
+    await db.Database.MigrateAsync();
+
+    logger.LogInformation("Database migration completed.");
+
+    var um = scope.ServiceProvider
+        .GetRequiredService<UserManager<ApplicationUser>>();
+
+    var rm = scope.ServiceProvider
+        .GetRequiredService<RoleManager<IdentityRole>>();
+
+    // Roles
+    if (!await rm.RoleExistsAsync("Admin"))
     {
-        rm.CreateAsync(new IdentityRole("Admin")).Wait();
-        rm.CreateAsync(new IdentityRole("User")).Wait();
+        await rm.CreateAsync(new IdentityRole("Admin"));
     }
 
-    if (um.FindByEmailAsync("admin@local").Result == null)
+    if (!await rm.RoleExistsAsync("User"))
     {
-        var admin = new ApplicationUser { Email = "admin@local", UserName = "admin@local", DisplayName = "Administrator" };
-        var created = um.CreateAsync(admin, "Admin123!").Result;
-        if (created.Succeeded) um.AddToRoleAsync(admin, "Admin").Wait();
+        await rm.CreateAsync(new IdentityRole("User"));
     }
 
-    // Seed sample auctions if none exist (dev)
-    if (!db.Auctions.Any())
+    // Admin User
+    var admin = await um.FindByEmailAsync("admin@local");
+
+    if (admin == null)
     {
-        db.Auctions.AddRange(
-            new Auction
-            {
-                Title = "Vintage Rolex Submariner 1970",
-                Description = "An exceptional example of the iconic Rolex Submariner from 1970. Comes with original papers.",
-                ImageUrl = "/uploads/watch-auction.jpg",
-                StartPrice = 8000m,
-                CurrentPrice = 8000m,
-                StartTime = DateTime.UtcNow.AddDays(-1),
-                EndTime = DateTime.UtcNow.AddDays(6),
-                SellerId = null,
-                Status = AuctionStatus.Live,
-                BidCount = 0
-            },
-            new Auction
-            {
-                Title = "Contemporary Abstract Painting",
-                Description = "Large contemporary painting, framed and ready to hang.",
-                ImageUrl = "/uploads/painting.jpg",
-                StartPrice = 5000m,
-                CurrentPrice = 5000m,
-                StartTime = DateTime.UtcNow.AddDays(-2),
-                EndTime = DateTime.UtcNow.AddDays(4),
-                SellerId = null,
-                Status = AuctionStatus.Live,
-                BidCount = 0
-            }
+        admin = new ApplicationUser
+        {
+            Email = "admin@local",
+            UserName = "admin@local",
+            DisplayName = "Administrator"
+        };
+
+        var result = await um.CreateAsync(admin, "Admin123!");
+
+        if (result.Succeeded)
+        {
+            await um.AddToRoleAsync(admin, "Admin");
+        }
+    }
+
+    // Categories
+    if (!await db.Categories.AnyAsync())
+    {
+        db.Categories.AddRange(
+            new Category { Name = "Fine Art" },
+            new Category { Name = "Jewelry" },
+            new Category { Name = "Watch" },
+            new Category { Name = "Antiques" },
+            new Category { Name = "Furniture" }
         );
 
-        db.SaveChanges();
-    }
-    // after applying migrations and creating roles/users:
-    if (!db.Categories.Any())
-    {
-        var categories = new[]
-        {
-        new Category { Name = "Fine Art" },
-        new Category { Name = "Jewelry" },
-        new Category { Name = "Watch" },
-        new Category { Name = "Antiques" },
-        new Category { Name = "Furniture" }
-    };
-        db.Categories.AddRange(categories);
-        db.SaveChanges();
+        await db.SaveChangesAsync();
     }
 
+    logger.LogInformation("Startup seed completed.");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"STARTUP ERROR: {ex}");
 }
 
 app.UseSwagger();
