@@ -49,7 +49,10 @@ const Index = () => {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState();
   
-  const apiBase = (import.meta.env.VITE_API_URL ?? "https://localhost:62628").replace(/\/$/, "");
+  const apiBase = (
+  import.meta.env.VITE_API_URL ??
+  "https://localhost:62628"
+).replace(/\/api$/, "").replace(/\/$/, "");
   const signalRUrl = import.meta.env.VITE_SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
 
   // helper: normalize image URL (if relative -> prefix with API base)
