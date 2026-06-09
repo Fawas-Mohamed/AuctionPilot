@@ -59,10 +59,8 @@ const Index = () => {
    const normalizeImage = (imageUrl: string | null | undefined) => {
     if (!imageUrl) return null;
     if (imageUrl.startsWith("http")) return imageUrl;
-    return `https://localhost:62628${imageUrl}`;
+    return `${apiBase}${imageUrl}`;
   };
-
-
 
   const fetchAuctions = async () => {
     try{
