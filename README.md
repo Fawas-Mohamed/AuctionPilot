@@ -346,7 +346,7 @@ The application was tested for:
 
 ---
 
-# 👨‍💻 Development Team
+# 👨‍💻 Development 
 
 ### Mohamed Fawas
 
