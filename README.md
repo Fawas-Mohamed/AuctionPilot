@@ -304,4 +304,70 @@ Create:
 ```
 
 This prevents 404 errors when refreshing React routes.
+---
+
+## Backend Deployment
+
+Platform: Microsoft Azure App Service
+
+Features:
+
+* Automatic deployment
+* HTTPS support
+* SQL Server integration
+* SignalR support
+* Application logging
+
+---
+
+# 🧪 Testing
+
+The application was tested for:
+
+* Authentication
+* Auction Creation
+* Bid Placement
+* Real-Time Updates
+* API Endpoints
+* Database Operations
+* User Authorization
+* Error Handling
+
+---
+
+# 🔮 Future Enhancements
+
+* Online Payments
+* AI Price Prediction
+* Email Notifications
+* Mobile Application
+* Advanced Search Filters
+* Multi-language Support
+
+---
+
+# 👨‍💻 Development Team
+
+### Mohamed Fawas
+
+Founder & Full Stack Developer
+
+---
+
+# 📄 License
+
+This project is developed for educational and portfolio purposes.
+
+---
+
+## ⭐ Support
+
+If you find this project useful, consider giving it a star on GitHub.
+
+⭐ Star the repository
+🍴 Fork the project
+🛠 Contribute improvements
+
+Thank you for visiting AuctionPilot!
+
 
