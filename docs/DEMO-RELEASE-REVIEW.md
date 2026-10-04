@@ -58,3 +58,13 @@ This is local browser verification, not a live backend/deployment acceptance cla
 Render CLI v2.28.0 was downloaded from the official release and checksum verified. Render Blueprint API validation, remote Docker build, migrations on Neon, live /health/ready, live Cloudinary uploads, actual WebSocket reconnect/block behavior and natural sleep/wakeup remain dependent on account authorization and provider settings. Local Docker Desktop availability is not used as a substitute for Render's requested remote build.
 
 The first external acceptance gate is Render startup after explicit initialization of the empty Neon demo. Verify remote Docker success and /health/ready before setting Vercel Preview variables. Keep preview variables scoped to this branch and do not change Production values or promote the preview as part of this step.
+
+## GitHub publication and remote CI
+
+The migration was committed and pushed as 1fc547a033fef08c3fa674824aecffafbec40fbf, on top of the latest main documentation. [PR #1](https://github.com/Fawas-Mohamed/AuctionPilot/pull/1) is open and unmerged.
+
+Both the [push workflow](https://github.com/Fawas-Mohamed/AuctionPilot/actions/runs/37212148487) and [PR workflow](https://github.com/Fawas-Mohamed/AuctionPilot/actions/runs/37212260825) passed. Each ran backend build, real PostgreSQL 17 integration tests, upload smoke checks, npm lockfile installation, TypeScript, production frontend build and Docker build on the Linux runner.
+
+This verifies the container can be built remotely on GitHub. Render's own Docker build/run, Neon initialization and live readiness remain unverified until Render account access and server-side settings are available. Render CLI still reports that login is required at this checkpoint. No new provider services, Neon schema or Cloudinary assets have been created by this session.
+
+Use tests/Check-DemoBackend.ps1 with the actual Render origin after its remote deployment succeeds. It checks liveness, database readiness, reconciled public state and an exact CORS preflight, once each. Run it before configuring Vercel Preview variables, then rerun it with the exact preview origin after adding that origin to CORS.

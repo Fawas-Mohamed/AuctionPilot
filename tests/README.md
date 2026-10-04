@@ -33,3 +33,11 @@ Chrome must be installed. Set AUCTIONPILOT_PREVIEW_URL to the Vercel preview ori
     node tests/browser-acceptance.cjs
 
 For a localhost production preview with a simulated unavailable backend only, also set AUCTIONPILOT_BROWSER_MOCK_API=1. Mock mode is forbidden for external preview origins. Local checks cover SPA routing, demo messaging, anonymous result/admin guards and disabled consignments. Authenticated bidding, live Cloudinary and sleep/reconnect acceptance remain separate checks in the deployment guide.
+
+## Backend deployment gate
+
+After Render reports successful remote Docker build/startup, run from PowerShell:
+
+    ./tests/Check-DemoBackend.ps1 -BackendOrigin https://ACTUAL-RENDER-HOST.onrender.com
+
+After the preview's exact origin is configured in Render CORS, also supply -FrontendOrigin https://ACTUAL-PREVIEW.vercel.app. This script performs one bounded liveness/readiness/state/CORS check; it does not keep the service awake.
