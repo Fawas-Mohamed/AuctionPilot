@@ -55,7 +55,7 @@ Nine Chrome checks passed against the existing production frontend bundle served
 
 This is local browser verification, not a live backend/deployment acceptance claim. tests/browser-acceptance.cjs can be rerun against the eventual Vercel preview without mock mode. Its output and screenshot are saved under ignored .local/. Build tooling was installed only under .local/browser-tools; it does not change production dependencies.
 
-Render CLI v2.28.0 was downloaded from the official release and checksum verified. Render Blueprint API validation, remote Docker build, migrations on Neon, live /health/ready, live Cloudinary uploads, actual WebSocket reconnect/block behavior and natural sleep/wakeup remain dependent on account authorization and provider settings. Local Docker Desktop availability is not used as a substitute for Render's requested remote build.
+Render CLI v2.28.0 was downloaded from the official release and checksum verified. Render access is now authorized, Blueprint validation passed, and Render's remote Docker build passed for commit 8b10ff61d54ef80b3f2832b4c75a05b47db78db7. The service's first startup failed on the missing ConnectionStrings__DefaultConnection guard. Neon initialization, live /health/ready, Cloudinary uploads, actual WebSocket reconnect/block behavior and natural sleep/wakeup remain unverified pending saved provider settings. Local Docker Desktop availability is not used as a substitute for Render's requested remote build.
 
 The first external acceptance gate is Render startup after explicit initialization of the empty Neon demo. Verify remote Docker success and /health/ready before setting Vercel Preview variables. Keep preview variables scoped to this branch and do not change Production values or promote the preview as part of this step.
 
@@ -65,6 +65,31 @@ The migration was committed and pushed as 1fc547a033fef08c3fa674824aecffafbec40f
 
 Both the [push workflow](https://github.com/Fawas-Mohamed/AuctionPilot/actions/runs/37212148487) and [PR workflow](https://github.com/Fawas-Mohamed/AuctionPilot/actions/runs/37212260825) passed. Each ran backend build, real PostgreSQL 17 integration tests, upload smoke checks, npm lockfile installation, TypeScript, production frontend build and Docker build on the Linux runner.
 
-This verifies the container can be built remotely on GitHub. Render's own Docker build/run, Neon initialization and live readiness remain unverified until Render account access and server-side settings are available. Render CLI still reports that login is required at this checkpoint. No new provider services, Neon schema or Cloudinary assets have been created by this session.
+The follow-up source commit 8b10ff6 also passed both the [push workflow](https://github.com/Fawas-Mohamed/AuctionPilot/actions/runs/37221710623) and [PR workflow](https://github.com/Fawas-Mohamed/AuctionPilot/actions/runs/37221713944), including Docker. Render's own build has since passed as recorded below. No Neon schema or Cloudinary assets have been created by the agent at this checkpoint.
 
 Use tests/Check-DemoBackend.ps1 with the actual Render origin after its remote deployment succeeds. It checks liveness, database readiness, reconciled public state and an exact CORS preflight, once each. Run it before configuring Vercel Preview variables, then rerun it with the exact preview origin after adding that origin to CORS.
+
+## Render deployment checkpoint — 2026-10-05
+
+Render authorization succeeded and the sole workspace was selected. Render's API validated render.yaml with valid=true and a plan containing only auctionpilot-demo-api. A separate service was created through the Render API with the reviewed Blueprint-equivalent settings, rather than modifying existing services:
+
+| Setting | Verified value |
+| --- | --- |
+| Service | auctionpilot-demo-api / srv-db19ftm0tbcc73a5l8g0 |
+| Origin | https://auctionpilot-demo-api.onrender.com |
+| Instance / region | Free / Singapore |
+| Source branch | codex/neon-render-demo-migration |
+| Runtime / Dockerfile / context | Docker / ./backend/Dockerfile / . |
+| Automatic deploys / health path | off / /health |
+| Initial build commit | 8b10ff61d54ef80b3f2832b4c75a05b47db78db7 |
+| Initial deployment | dep-db19fu60tbcc73a5l9rg |
+
+Render logs confirm successful .NET restore and publish, completed image-layer upload, and completed build-cache export. The container then executed and failed with Set ConnectionStrings__DefaultConnection. The deployment status is update_failed; a successful image build is not a ready backend.
+
+The documented Check-DemoBackend.ps1 gate was run once against the actual service. Its first /health request timed out. /health/ready, auction reconciliation and CORS steps consequently did not execute and remain unverified.
+
+A configuration-name check found only the nine supplied defaults, with no linked environment group. ConnectionStrings__DefaultConnection, the three Cloudinary__ settings and both AdminSeed__ settings are still missing; both Database__ initialization flags remain false. Saved values must become visible on this exact service before initialization can proceed. Secret values were neither printed nor committed. Jwt__Key was generated in memory and stored only in Render. CLI authorization remains in Render's local credential file.
+
+Passed: Render authorization, Blueprint validation, separate Free service configuration, remote Docker build/image upload. Failed: first container startup due to missing database configuration, and the bounded /health gate timeout. Unverified: Neon migrations/seeding, live readiness/CORS, Cloudinary upload, Vercel Preview, live authenticated browser/WebSocket/sleep checks. Azure and the three unrelated existing Render services are untouched. No paid service was enabled.
+
+The owner requested a dashboard walkthrough. See the current service setup section in PORTFOLIO-DEMO-DEPLOYMENT.md. Initialization remains a first-boot startup action on the confirmed empty Neon database; no separate paid migration job is used.

@@ -64,7 +64,7 @@ Both are public URLs. API and hub must share an origin and use these exact paths
 7. Set both initialization flags back to false and remove AdminSeed__Password (and preferably AdminSeed__Email). Deploy the environment change. Keep the JWT key stable across ordinary releases; changing it signs everyone out.
 8. Sign in as the private demo administrator. Register synthetic seller/bidder accounts using addresses you control. Upload new demo images and create auctions through the existing forms. Seeded roles/categories/admin do not automatically create auctions. Never share the administrator password publicly.
 9. Keep the existing Vercel project. Root directory: frontend; framework: Vite; Node: 22; install: npm ci; build: npm run typecheck && npm run build; output: dist. Set the two public URL variables to the actual Render host. Select the Preview environment, scoped to codex/neon-render-demo-migration, for the two URL variables. Deploy a preview only after backend readiness, add its exact CORS origin, and verify it. Production promotion is a separate decision. Preserve frontend/vercel.json's SPA rewrite.
-10. Run the manual acceptance checks below against the actual new services. The placeholder auctionpilot-demo-api.onrender.com used in local build checks is not a deployed or verified endpoint.
+10. Run the manual acceptance checks below against the actual new services. The previously local placeholder auctionpilot-demo-api.onrender.com now belongs to the provisioned Free service. Its remote Docker build passed; startup/readiness still require provider configuration.
 
 ## Manual acceptance after accounts are connected
 
@@ -106,7 +106,7 @@ An Azure restoration would require a separate explicit plan using the original S
 
 ## Access needed to finish
 
-Deployment requires a Render CLI login and Neon/Cloudinary settings saved directly in the Render dashboard. Use Render's remote Docker build, followed by backend readiness checks, before configuring the Vercel Preview. Never send provider secrets in chat. See DEMO-RELEASE-REVIEW.md and the PR for current verification and remaining access gates.
+Render CLI login is complete. Deployment now requires Neon/Cloudinary settings saved directly on the provisioned Render service. Use Render's remote Docker build, followed by backend readiness checks, before configuring the Vercel Preview. Never send provider secrets in chat. See DEMO-RELEASE-REVIEW.md and the PR for current verification and remaining access gates.
 
 The existing Vercel root, /auctions/1 and /payment-success returned HTTP 200 and SPA HTML during this session. That checks existing deep-link routing only; it does not validate this unpublished migration or its browser flows.
 
@@ -123,3 +123,37 @@ A Blueprint supplies safe false defaults for initialization. If its first startu
 Only after Render's remote build/startup and Check-DemoBackend.ps1 pass, configure the existing Vercel project's Preview environment for this branch: root frontend, Vite, Node 22, install npm ci, build npm run typecheck && npm run build, output dist, and the two VITE URL settings above. Preserve the SPA rewrite. Take the actual preview origin from Vercel, append it exactly to Render's CORS_ALLOWED_ORIGINS, save/redeploy the backend environment, and run Check-DemoBackend.ps1 again with -FrontendOrigin https://ACTUAL-PREVIEW.vercel.app.
 
 Then run tests/browser-acceptance.cjs with AUCTIONPILOT_PREVIEW_URL=https://ACTUAL-PREVIEW.vercel.app and AUCTIONPILOT_API_ORIGIN=https://ACTUAL-RENDER-HOST.onrender.com. Leave AUCTIONPILOT_BROWSER_MOCK_API unset for this live check. Authenticated upload/bidding, admin block/close, WebSocket recovery and natural sleep checks follow the manual acceptance list above.
+
+## Current service setup walkthrough — 2026-10-05
+
+Render service: [auctionpilot-demo-api](https://dashboard.render.com/web/srv-db19ftm0tbcc73a5l8g0). Its Free Docker build passed. First startup failed because the database connection is missing; backend readiness is not yet established. The repository's PR remains open and unmerged.
+
+1. Open the [Neon Console](https://console.neon.tech), sign in, and verify the account is on Free. If the fresh project already exists, use it. Otherwise click New Project, name it auctionpilot-demo, choose AWS Singapore if offered, expand Postgres database to select PostgreSQL 17, and create the project. Enable only Postgres database; retain scale-to-zero. See [Neon project setup](https://neon.com/docs/manage/projects).
+2. Select the project's default branch. Under Postgres database, open Databases, click Add database, enter auctionpilot_demo, select the generated database owner, and click Create. If that empty demo database already exists, select it. Do not import data or create application tables manually. See [Neon database setup](https://neon.com/docs/manage/databases).
+3. In Neon's SQL Editor, select this branch and auctionpilot_demo, then run the read-only check below. A newly created database returns 0. If existing application tables appear, initialization must wait for review.
+4. Click Connect in the Neon Console navigation. Select the default branch, read-write compute, auctionpilot_demo, and its owner role. Keep Connection pooling on. Use the host, role and database password from the dialog to fill the repository's Host=... Npgsql format below, directly in Render. The host contains -pooler and ends in neon.tech. See [Neon connection dialog](https://neon.com/docs/connect/connect-from-any-app).
+5. Open the [Cloudinary Console](https://console.cloudinary.com), create/sign into a Free account, and go to Settings > API Keys. Locate the cloud name and API key/secret for its product environment. Save each as its separate Render variable below. See [Cloudinary credentials](https://cloudinary.com/documentation/developer_onboarding_faq_find_credentials).
+6. Open the exact Render service above, select Environment in the left pane, and use Add Environment Variable to enter the six rows below. AdminSeed settings create a private administrator in the demo application; choose an email you control and a separate strong password saved in your password manager. Keep the already generated Jwt__Key stable.
+7. Edit the existing Database__ApplyMigrations and Database__SeedDemo variables to true only after confirming the selected Neon database is fresh and empty. From the save dropdown choose Save only. That saves settings without deploying; the agent can then validate configuration names and trigger the documented first-boot initialization. See [Render environment settings](https://render.com/docs/configure-environment-variables).
+8. Reply with configured status and the empty-database result only. Do not send any credential value or a screenshot containing credentials. After successful initialization/readiness, both Database__ flags return to false and the seed password is removed before the next preview step.
+
+Read-only empty-database check:
+
+    SELECT count(*) AS existing_tables
+    FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
+
+ConnectionStrings__DefaultConnection value template (replace all REPLACE values only in Render):
+
+    Host=REPLACE_WITH_FULL_NEON_POOLED_HOST;Port=5432;Database=auctionpilot_demo;Username=REPLACE_WITH_NEON_ROLE;Password=REPLACE_WITH_NEON_DATABASE_PASSWORD;SSL Mode=VerifyFull;Maximum Pool Size=5;Minimum Pool Size=0;Connection Idle Lifetime=30;Timeout=30;Command Timeout=30
+
+| Exact Render key | Value entered privately in Render |
+| --- | --- |
+| ConnectionStrings__DefaultConnection | Completed Npgsql template above |
+| Cloudinary__CloudName | Cloudinary product environment cloud name |
+| Cloudinary__ApiKey | Cloudinary API key |
+| Cloudinary__ApiSecret | Cloudinary API secret |
+| AdminSeed__Email | Chosen private demo administrator email |
+| AdminSeed__Password | Chosen strong demo administrator password |
+
+Do not create a second Render service, a Render database or a paid job for migrations. The existing service runs initialization through application startup. Vercel Preview configuration follows only after Render readiness passes; its exact variables and subsequent acceptance commands are documented above.
