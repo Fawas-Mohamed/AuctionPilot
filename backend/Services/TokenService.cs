@@ -27,6 +27,7 @@ namespace AuctionApi.Services
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id ?? ""),
                 new Claim(ClaimTypes.NameIdentifier, user.Id ?? ""),
                 new Claim(ClaimTypes.Name, user.UserName ?? ""),
+                new Claim("security_stamp", user.SecurityStamp ?? ""),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email ?? "")
             };
 
@@ -44,7 +45,7 @@ namespace AuctionApi.Services
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             // token lifetime: adjust as needed
-            var expires = DateTime.UtcNow.AddHours(6);
+            var expires = DateTime.UtcNow.AddHours(1);
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],

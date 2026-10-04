@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using AuctionApi.Data; 
 using AuctionApi.Hubs;
@@ -23,6 +23,7 @@ namespace AuctionApi.Services
 
         public async Task<Notification> CreateAsync(string userId, string title, string message, int? auctionId = null, int? bidId = null)
         {
+            if (_db.Database.CurrentTransaction != null) throw new InvalidOperationException("Create notifications in the closure transaction and broadcast after commit.");
             var n = new Notification
             {
                 UserId = userId,

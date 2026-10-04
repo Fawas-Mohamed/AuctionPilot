@@ -118,7 +118,11 @@ namespace AuctionApi.Controllers
                         ImageUrl = w.Auction.ImageUrl,
                         w.Auction.CurrentPrice,
                         w.Auction.StartPrice,
-                        w.Auction.EndTime
+                        w.Auction.EndTime,
+                        w.Auction.StartTime,
+                        w.Auction.IsClosed,
+                        w.Auction.Status,
+                        w.Auction.BidCount
                     }
                 })
                 .ToListAsync();

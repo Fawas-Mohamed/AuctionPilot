@@ -1,9 +1,14 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { createAuctionConnection } from "@/lib/signalr";
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import * as signalR from "@microsoft/signalr";
 
 const AuctionsList = () => {
   const [auctions, setAuctions] = useState<any[]>([]);
+
+  useServerRefresh(async () => { const r = await api.get("/auctions"); setAuctions(r.data ?? []); });
 
   useEffect(() => {
     let mounted = true;
@@ -20,13 +25,8 @@ const AuctionsList = () => {
     void load();
 
     // SignalR setup - update url if different
-    const hubUrl = `${window.location.protocol}//${window.location.host}/hubs/auction`;
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl(hubUrl, {
-        accessTokenFactory: () => localStorage.getItem("token") ?? ""
-      })
-      .withAutomaticReconnect()
-      .build();
+    const hubUrl = SIGNALR_URL;
+    const connection = createAuctionConnection();
 
     connection.on("AuctionCreated", (newAuction: any) => {
       // prepend new auction
@@ -42,11 +42,7 @@ const AuctionsList = () => {
       connection.stop().catch(()=>{});
     };
   }, []);
-    const getImageUrl = (url?: string) => {
-    if (!url) return "";
-    if (url.startsWith("http")) return url;
-    return import.meta.env.VITE_API_URL.replace("/api", "") + url;
-  };
+    const getImageUrl = imageUrl;
 
   return (
     <div>

@@ -1,3 +1,6 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { createAuctionConnection } from "@/lib/signalr";
 // src/pages/AuctionsPage.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
@@ -45,11 +48,8 @@ const AuctionsPage: React.FC = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
 
-  const apiBase = (
-  import.meta.env.VITE_API_URL ??
-  "https://localhost:62628"
-).replace(/\/api$/, "").replace(/\/$/, "");
-  const signalRUrl = import.meta.env.VITE_SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
+  const apiBase = BACKEND_ORIGIN;
+  const signalRUrl = SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
 
   // helper: normalize image URL (if relative -> prefix with API base)
  
@@ -109,6 +109,8 @@ useEffect(() => {
     return null;
   };
 
+  useServerRefresh(async () => { await fetchAuctions(); });
+
   useEffect(() => {
     void fetchAuctions();
     void fetchCategories();
@@ -162,10 +164,7 @@ const formatPrice = (p?: number) =>
   // Setup SignalR connection for realtime updates
   useEffect(() => {
     const tokenFactory = () => localStorage.getItem("token") ?? "";
-    const newConnection = new HubConnectionBuilder()
-      .withUrl(signalRUrl, { accessTokenFactory: tokenFactory })
-      .withAutomaticReconnect()
-      .build();
+    const newConnection = createAuctionConnection();
 
     setConnection(newConnection);
 

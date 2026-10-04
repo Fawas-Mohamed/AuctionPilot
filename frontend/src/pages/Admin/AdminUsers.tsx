@@ -16,17 +16,17 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
-  role: "USER" | "ADMIN";
+  role: "User" | "Admin";
   isBlocked: boolean;
 }
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<number | null>(null); // track per-user action
+  const [actionLoading, setActionLoading] = useState<string | null>(null); // track per-user action
   const [error, setError] = useState<string | null>(null);
 
   // Fetch all users
@@ -49,7 +49,7 @@ export default function AdminUsers() {
   }, []);
 
   // Block / Unblock user
-  const toggleBlock = async (id: number, isBlocked: boolean) => {
+  const toggleBlock = async (id: string, isBlocked: boolean) => {
     setActionLoading(id);
     try {
       await api.patch(`/admin/users/${id}/block`, { isBlocked: !isBlocked });
@@ -63,7 +63,7 @@ export default function AdminUsers() {
   };
 
   // Delete user
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
     setActionLoading(id);
     try {
@@ -78,10 +78,10 @@ export default function AdminUsers() {
   };
 
   // Promote / Demote user role
-  const toggleRole = async (id: number, role: "USER" | "ADMIN") => {
+  const toggleRole = async (id: string, role: "User" | "Admin") => {
     setActionLoading(id);
     try {
-      const newRole = role === "USER" ? "ADMIN" : "USER";
+      const newRole = role === "User" ? "Admin" : "User";
       await api.patch(`/admin/users/${id}/role`, { role: newRole });
       await fetchUsers();
     } catch (err) {
@@ -93,7 +93,7 @@ export default function AdminUsers() {
   };
 
   // Add user / admin
-  const addUser = async (role: "USER" | "ADMIN") => {
+  const addUser = async (role: "User" | "Admin") => {
   const firstName = prompt("Enter first name:");
   if (!firstName) return;
   const lastName = prompt("Enter last name:");
@@ -108,9 +108,9 @@ export default function AdminUsers() {
       email,
       password,
       displayName: `${firstName} ${lastName}`,
-      role // <-- extra field so admin can assign role
+      role
     };
-    await api.post("/auth/register", payload);
+    await api.post("/admin/users", payload);
     fetchUsers();
   } catch (err) {
     console.error("Add user failed", err);
@@ -125,8 +125,8 @@ export default function AdminUsers() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">User Management</h2>
           <div className="space-x-2">
-            <Button onClick={() => addUser("USER")}>Add User</Button>
-            <Button onClick={() => addUser("ADMIN")}>Add Admin</Button>
+            <Button onClick={() => addUser("User")}>Add User</Button>
+            <Button onClick={() => addUser("Admin")}>Add Admin</Button>
             <Button variant="secondary" onClick={fetchUsers}>
               Refresh
             </Button>
@@ -164,7 +164,7 @@ export default function AdminUsers() {
                   <TableCell>{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
-                    <Badge variant={u.role === "ADMIN" ? "default" : "outline"}>
+                    <Badge variant={u.role === "Admin" ? "default" : "outline"}>
                       {u.role}
                     </Badge>
                   </TableCell>
@@ -198,7 +198,7 @@ export default function AdminUsers() {
                     >
                       {actionLoading === u.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : u.role === "USER" ? (
+                      ) : u.role === "User" ? (
                         "Promote to Admin"
                       ) : (
                         "Demote to User"

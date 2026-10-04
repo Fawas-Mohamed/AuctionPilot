@@ -1,3 +1,5 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { createAuctionConnection } from "@/lib/signalr";
 import React, { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
@@ -6,6 +8,8 @@ import { Link } from "react-router-dom";
 const Auctions: React.FC = () => {
   const [auctions, setAuctions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useServerRefresh(async () => { const r = await api.get("/auctions"); setAuctions(r.data ?? []); });
 
   useEffect(() => {
     let mounted = true;
@@ -23,12 +27,7 @@ const Auctions: React.FC = () => {
 
     // SignalR listen for new auctions
     const token = localStorage.getItem("token");
-    const connection = new HubConnectionBuilder()
-      .withUrl(`${(import.meta.env.VITE_API_URL || "https://localhost:62628")}/hubs/auction`, {
-        accessTokenFactory: () => token ?? ""
-      })
-      .configureLogging(LogLevel.Information)
-      .build();
+    const connection = createAuctionConnection();
 
     connection.start().catch((e) => console.error("hub start failed", e));
     connection.on("AuctionCreated", (payload: any) => {

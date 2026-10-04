@@ -69,13 +69,13 @@ export default function AdminReports() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Admin Reports & Analytics</h1>
+      <h1 className="text-2xl font-bold">Demo Reports (sample data) & Analytics</h1>
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Today’s Sales</CardTitle>
+            <CardTitle>Sample Daily Value</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xl font-semibold">${todaySales.toLocaleString()}</p>
@@ -84,7 +84,7 @@ export default function AdminReports() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Sales</CardTitle>
+            <CardTitle>Sample Monthly Value</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xl font-semibold">${monthlySales.toLocaleString()}</p>
@@ -106,7 +106,7 @@ export default function AdminReports() {
         {/* Bar Chart (Sales per day) */}
         <Card>
           <CardHeader>
-            <CardTitle>Sales Per Day (This Month)</CardTitle>
+            <CardTitle>Sample Values Per Day</CardTitle>
           </CardHeader>
           <CardContent>
             {graphData.length === 0 ? (
@@ -154,7 +154,7 @@ export default function AdminReports() {
         {/* Pie Chart (Distribution) full-width on smaller screens */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Sales Distribution</CardTitle>
+            <CardTitle>Sample Value Distribution</CardTitle>
           </CardHeader>
           <CardContent>
             {pieData.length === 0 ? (

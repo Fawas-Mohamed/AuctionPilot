@@ -1,3 +1,6 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { createAuctionConnection } from "@/lib/signalr";
 // src/pages/UserProfile.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Header } from "@/components/Header";
@@ -74,14 +77,14 @@ const UserProfile: React.FC = () => {
   const hubRef = useRef<HubConnection | null>(null);
   const mountedRef = useRef(true);
 
-  const apiBase = (import.meta.env.VITE_API_URL ?? "https://localhost:62628").replace(/\/$/, "");
-  const signalRUrl = import.meta.env.VITE_SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
+  const apiBase = BACKEND_ORIGIN;
+  const signalRUrl = SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
 
   // helper: safe image normalization
   const normalizeImage = (avatarUrl: string | null | undefined) => {
     if (!avatarUrl) return null;
     if (avatarUrl.startsWith("http")) return avatarUrl;
-    return `https://localhost:62628${avatarUrl}`;
+    return imageUrl(avatarUrl);
   };
 
 
@@ -109,6 +112,8 @@ const UserProfile: React.FC = () => {
   }
 };
 
+
+  useServerRefresh(async () => { const r = await api.get("/account/stats"); setStats(r.data); });
 
   useEffect(() => {
     mountedRef.current = true;
@@ -146,8 +151,8 @@ const UserProfile: React.FC = () => {
 
     // SignalR setup with robust fallback URL
     const token = localStorage.getItem("token") ?? "";
-    const envSignalR = import.meta.env.VITE_SIGNALR_URL;
-    const apiUrl = import.meta.env.VITE_API_URL;
+    const envSignalR = SIGNALR_URL;
+    const apiUrl = API_URL;
     const fallbackHub = apiUrl
       ? `${apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "")}/hubs/auction`
       : `${window.location.origin}/hubs/auction`;
@@ -155,11 +160,7 @@ const UserProfile: React.FC = () => {
 
     setDebug((d) => [...d, `SignalR trying: ${hubUrl}`]);
 
-    const conn = new HubConnectionBuilder()
-      .withUrl(hubUrl, { accessTokenFactory: () => token })
-      .configureLogging(LogLevel.Warning)
-      .withAutomaticReconnect()
-      .build();
+    const conn = createAuctionConnection();
     hubRef.current = conn;
 
     // Helper to refresh stats by trying fallback endpoints (used by handlers)
@@ -235,7 +236,6 @@ const UserProfile: React.FC = () => {
         try {
           const userId = profile?.id;
           if (userId) {
-            conn.invoke("JoinUserGroup", `user-${userId}`).catch(() => {});
           }
         } catch {
           // ignore

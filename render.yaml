@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: auctionpilot-demo-api
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: codex/neon-render-demo-migration
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: PORT
+        value: "10000"
+      - key: Proxy__TrustRender
+        value: "true"
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Jwt__Key
+        generateValue: true
+      - key: Jwt__Issuer
+        value: AuctionAPI
+      - key: Jwt__Audience
+        value: AuctionClient
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://auction-pilot.vercel.app
+      - key: Cloudinary__CloudName
+        sync: false
+      - key: Cloudinary__ApiKey
+        sync: false
+      - key: Cloudinary__ApiSecret
+        sync: false
+      - key: Database__ApplyMigrations
+        value: "false"
+      - key: Database__SeedDemo
+        value: "false"
+      - key: AdminSeed__Email
+        sync: false
+      - key: AdminSeed__Password
+        sync: false

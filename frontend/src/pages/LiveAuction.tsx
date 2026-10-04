@@ -1,6 +1,9 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { createAuctionConnection } from "@/lib/signalr";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "@/lib/api";
+import { submitBid } from "@/lib/bidding";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -11,8 +14,11 @@ import { HubConnectionBuilder } from "@microsoft/signalr";
 const LiveAuction = () => {
   const { id } = useParams<{ id: string }>();
   const [auction, setAuction] = useState<any | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [bidAmount, setBidAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  useServerRefresh(async () => { if (id) { const r = await api.get("/auctions/" + id); setAuction(r.data); } });
 
   useEffect(() => {
     if (!id) return;
@@ -34,24 +40,19 @@ const LiveAuction = () => {
     if (!id) return;
 
     const token = localStorage.getItem("token");
-    const connection = new HubConnectionBuilder()
-      .withUrl(import.meta.env.VITE_SIGNALR_URL, {
-        accessTokenFactory: () => token || "",
-      })
-      .withAutomaticReconnect()
-      .build();
+    const connection = createAuctionConnection();
 
     connection.start().then(() => {
-      connection.invoke("JoinAuction", id);
-    });
+      void connection.invoke("JoinAuctionRoom", id).catch(() => {});
+    }).catch(() => {});
 
-  connection.on("NewBid", (data) => {
+  connection.on("BidPlaced", (data) => {
     // data: { auctionId, amount, bidderId, time }
     if (String(data.auctionId) === String(id)) {
       setAuction((prev: any) => prev ? {
         ...prev,
         currentPrice: data.amount,
-        bidCount: (prev.bidCount ?? 0) + 1
+        bidCount: data.bidCount ?? prev.bidCount
       } : prev);
     }
   });
@@ -61,13 +62,10 @@ const LiveAuction = () => {
   }, [id]);
 
   const placeBid = async () => {
-    if (!id || !auction) return;
+    if (!id || !auction || submitting) return;
+    setSubmitting(true);
     try {
-      const res = await api.post(`/auctions/${id}/bids`, {
-        amount:
-          Number(bidAmount) ||
-          Number(auction.currentPrice) + 1, // fallback to +1
-      });
+      const res = await submitBid(id, Number(bidAmount) || Number(auction.currentPrice) + 1);
       setBidAmount("");
       // optimistic update
       setAuction((prev: any) =>
@@ -82,7 +80,7 @@ const LiveAuction = () => {
     } catch (err: any) {
       console.error("Bid failed:", err);
       setError(err.response?.data?.message || "Failed to place bid.");
-    }
+    } finally { setSubmitting(false); }
   };
 
   if (!auction) {
@@ -114,7 +112,7 @@ const LiveAuction = () => {
                   value={bidAmount}
                   onChange={(e) => setBidAmount(e.target.value)}
                 />
-                <Button onClick={placeBid}>Place Bid</Button>
+                <Button onClick={placeBid} disabled={submitting}>Place Bid</Button>
               </div>
               {error && <div className="mt-2 text-red-600">{error}</div>}
             </div>

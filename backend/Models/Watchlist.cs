@@ -7,6 +7,6 @@
         public int AuctionId { get; set; }
 
         // Navigation property
-        public Auction Auction { get; set; }
+        public Auction Auction { get; set; } = null!;
     }
 }

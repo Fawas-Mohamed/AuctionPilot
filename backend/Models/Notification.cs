@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -27,5 +27,6 @@ namespace AuctionApi.Models
 
         public int? AuctionId { get; set; }
         public int? BidId { get; set; }
+        public string? EventKind { get; set; }
     }
 }

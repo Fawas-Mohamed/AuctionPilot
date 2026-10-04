@@ -1,3 +1,6 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { createAuctionConnection } from "@/lib/signalr";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { HubConnectionBuilder, HubConnection } from "@microsoft/signalr";
@@ -42,17 +45,19 @@ const AuctionsPage: React.FC = () => {
   >("ending-soon");
 
   const navigate = useNavigate();
-  const apiBase = (import.meta.env.VITE_API_URL ?? "https://localhost:62628").replace(/\/$/, "");
-  const signalRUrl = import.meta.env.VITE_SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
+  const apiBase = BACKEND_ORIGIN;
+  const signalRUrl = SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
 
   // helper: safe image normalization
   const normalizeImage = (imageUrl: string | null | undefined) => {
     if (!imageUrl) return null;
     if (imageUrl.startsWith("http")) return imageUrl;
-    return `https://localhost:62628${imageUrl}`;
+    return imageUrl.startsWith("http") ? imageUrl : BACKEND_ORIGIN + imageUrl;
   };
 
   // fetch auctions + categories
+  useServerRefresh(async () => { await fetchAuctions(); });
+
   useEffect(() => {
     void fetchAuctions();
     void fetchCategories();
@@ -93,10 +98,7 @@ const formatPrice = (p?: number) =>
   // Setup SignalR connection
   useEffect(() => {
     const tokenFactory = () => localStorage.getItem("token") ?? "";
-    const newConnection = new HubConnectionBuilder()
-      .withUrl(signalRUrl, { accessTokenFactory: tokenFactory })
-      .withAutomaticReconnect()
-      .build();
+    const newConnection = createAuctionConnection();
 
     setConnection(newConnection);
     return () => {

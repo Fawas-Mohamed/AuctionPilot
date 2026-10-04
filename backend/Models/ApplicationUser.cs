@@ -7,6 +7,7 @@ namespace AuctionApi.Models
         public string? DisplayName { get; set; }
         public bool IsBlocked { get; set; } = false;
         public string? AvatarUrl { get; set; }
+        public int? AvatarAssetId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
        
 

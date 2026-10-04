@@ -1,3 +1,6 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { createAuctionConnection } from "@/lib/signalr";
 // src/pages/MyAuctions.tsx
 import React, { useEffect, useState } from "react";
 import { Plus, Eye, Edit, Trash2, Clock, DollarSign, Users, BarChart, Banknote } from "lucide-react";
@@ -27,9 +30,11 @@ const MyAuctions: React.FC = () => {
   }
 };
 
-loadMyBids();
+useEffect(() => { void loadMyBids(); }, []);
 
 
+
+  useServerRefresh(async () => { const r = await api.get("/auctions/my"); setAuctions(r.data ?? []); await loadMyBids(); });
 
   useEffect(() => {
     let mounted = true;
@@ -49,19 +54,15 @@ loadMyBids();
 
     // SignalR - try environment variable first, fallback to API url -> hub path
     const token = localStorage.getItem("token") ?? "";
-    const envSignalR = (import.meta.env.VITE_SIGNALR_URL as string | undefined);
-    const apiUrl = (import.meta.env.VITE_API_URL as string | undefined);
+    const envSignalR = (SIGNALR_URL as string | undefined);
+    const apiUrl = (API_URL as string | undefined);
     const fallbackHub = apiUrl
       ? apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "") + "/hubs/auction"
       : window.location.origin + "/hubs/auction";
 
     const hubUrl = envSignalR ?? fallbackHub;
 
-    const connection = new HubConnectionBuilder()
-      .withUrl(hubUrl, { accessTokenFactory: () => token })
-      .withAutomaticReconnect()
-      .configureLogging(LogLevel.Warning)
-      .build();
+    const connection = createAuctionConnection();
 
     connection.start().catch((e) => {
       console.warn("SignalR start failed:", e);
@@ -277,7 +278,7 @@ loadMyBids();
     src={
       auction.imageUrl.startsWith("http")
         ? auction.imageUrl
-        : `https://localhost:62628${auction.imageUrl}`
+        : `${BACKEND_ORIGIN}${auction.imageUrl}`
     }
     alt={auction.title}
     className="w-full h-full object-cover"

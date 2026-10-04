@@ -129,8 +129,8 @@ export default function AdminAuctions() {
       title: a.title ?? "",
       description: a.description ?? "",
       startPrice: a.startPrice ?? 0,
-      startTime: a.startTime ?? "",
-      endTime: a.endTime ?? "",
+      startTime: a.startTime ? new Date(new Date(a.startTime).getTime() - new Date(a.startTime).getTimezoneOffset() * 60000).toISOString().slice(0,16) : "",
+      endTime: a.endTime ? new Date(new Date(a.endTime).getTime() - new Date(a.endTime).getTimezoneOffset() * 60000).toISOString().slice(0,16) : "",
       imageFile: a.imageUrl ?? null, // keep existing url string if present
       categoryId: a.categoryId ? String(a.categoryId) : ""
     });
@@ -140,39 +140,21 @@ export default function AdminAuctions() {
   // Save create/update
   const handleSave = async () => {
     try {
-      // Use JSON payload unless file provided -> FormData
-      let useFormData = form.imageFile instanceof File;
-      if (useFormData) {
-        const fd = new FormData();
-        fd.append("title", form.title);
-        fd.append("description", form.description);
-        fd.append("startPrice", String(form.startPrice));
-        fd.append("startTime", form.startTime);
-        fd.append("endTime", form.endTime);
-        if (form.categoryId) fd.append("categoryId", String(form.categoryId));
-        if (form.imageFile instanceof File) fd.append("image", form.imageFile);
-        if (editingAuction) {
-          await api.put(`/admin/auctions/${editingAuction.id}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
-        } else {
-          await api.post("/admin/auctions", fd, { headers: { "Content-Type": "multipart/form-data" } });
-        }
-      } else {
-        // JSON payload; imageFile may be a string url or null
-        const payload: any = {
-          title: form.title,
-          description: form.description,
-          startPrice: Number(form.startPrice),
-          startTime: form.startTime || null,
-          endTime: form.endTime || null,
-          imageUrl: typeof form.imageFile === "string" ? form.imageFile : null,
-          categoryId: form.categoryId ? Number(form.categoryId) : null
-        };
-        if (editingAuction) {
-          await api.put(`/admin/auctions/${editingAuction.id}`, payload);
-        } else {
-          await api.post("/admin/auctions", payload);
-        }
+      let imageUrl = typeof form.imageFile === "string" ? form.imageFile : null;
+      if (form.imageFile instanceof File) {
+        const upload = new FormData();
+        upload.append("file", form.imageFile);
+        const response = await api.post("/uploads", upload);
+        imageUrl = response.data.imageUrl;
+        if (!imageUrl) throw new Error("Image upload failed.");
       }
+      const payload = {
+        title: form.title, description: form.description, startPrice: Number(form.startPrice),
+        startTime: new Date(form.startTime).toISOString(), endTime: new Date(form.endTime).toISOString(),
+        imageUrl, categoryId: form.categoryId ? Number(form.categoryId) : null
+      };
+      if (editingAuction) await api.put("/admin/auctions/" + editingAuction.id, payload);
+      else await api.post("/admin/auctions", payload);
       setOpen(false);
       setEditingAuction(null);
       await fetchAll();
@@ -197,7 +179,7 @@ export default function AdminAuctions() {
   // Close (use admin endpoint)
   const handleClose = async (id: number) => {
     try {
-      await api.put(`/admin/auctions/${id}/close`);
+      await api.patch(`/admin/auctions/${id}/close`);
       await fetchAll();
     } catch (err) {
       console.error("Close failed", err);

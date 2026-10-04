@@ -1,7 +1,2 @@
-﻿namespace AuctionApi.Dtos
-{
-    public class PlaceBidDto
-    {
-        public decimal Amount { get; set; }
-    }
-}
+namespace AuctionApi.Dtos;
+public record PlaceBidDto(decimal Amount, Guid RequestId);
