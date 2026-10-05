@@ -53,11 +53,11 @@ The system supports multiple users bidding simultaneously while maintaining data
 
 ### Backend
 
-* Microsoft Azure App Service
+* Render
 
 ### Database
 
-* Azure SQL Database / SQL Server
+* Neon & Cloudinary
 ---
 
 # ✨ Key Features
