@@ -30,6 +30,18 @@ const { chromium } = require(process.env.AUCTIONPILOT_PLAYWRIGHT_MODULE || "../.
     await visit("/auctions/1");
     assert(await page.locator("main").isVisible());
     passed.push("Auction deep link serves and renders the SPA");
+    const closedId = process.env.AUCTIONPILOT_CLOSED_AUCTION_ID;
+    if (closedId) {
+      assert(!mock && /^\d+$/.test(closedId), "Closed-auction regression requires a live synthetic closed auction ID.");
+      const stored = await page.request.get(backend + "/api/auctions/" + closedId);
+      assert.equal(stored.status(), 200, "Closed-auction fixture is unavailable.");
+      assert.equal((await stored.json()).isClosed, true, "Regression fixture must be closed by the backend.");
+      await visit("/auctions/" + closedId);
+      const bid = page.getByRole("button", { name: "Place Bid", exact: true });
+      await bid.waitFor();
+      assert(await bid.isDisabled(), "A persisted closed auction must disable bidding without a realtime event.");
+      passed.push("Persisted closed auction disables bidding after a direct browser load");
+    }
     await visit("/payment-success?paid=true");
     await page.getByText("Payments are unavailable. This page does not confirm a payment or transaction.").waitFor();
     passed.push("Payment URL never confirms a payment");

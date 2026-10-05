@@ -29,6 +29,7 @@ type AuctionDto = {
   createdById?: string | null;
   status?: number | string;
   bidCount?: number;
+  isClosed?: boolean;
   category?: string | CategoryObj | null;
   estimate?: string | null;
   brand?: string;
@@ -57,8 +58,7 @@ const AuctionDetails: React.FC = () => {
   const hubRef = useRef<HubConnection | null>(null);
   const mountedRef = useRef(true);
   const [timeTick, setTimeTick] = useState(0);
-  const [isEnded, setIsEnded] = useState(false);
-  const [timeNowTick, setTimeNowTick] = useState(0); // triggers re-render to refresh remaining time
+  const isEnded = auction?.isClosed === true;
 
   const pushDebug = (m: string) => setDebugLog((d) => [...d, `${new Date().toISOString()} · ${m}`].slice(-50));
  
@@ -192,36 +192,6 @@ const formatTimeRemaining = (endTime?: string | null) => {
   const showDate = (val?: string) =>
   val ? val.split("T")[0] : "—";
 
-  // --- Countdown + end detection (run after auction is loaded) ---
-  /*useEffect(() => {
-    if (!auction?.endTime) return;
-
-    const checkIfEnded = () => {
-      try {
-        const end = parseServerUtcToDate(auction.endTime);
-        if (!end) return;
-        const now = new Date();
-        if (end.getTime() <= now.getTime()) {
-          setIsEnded(true);
-          setAuction((a) => (a ? { ...a, status: "Ended" } : a));
-        } else {
-          setIsEnded(false);
-        }
-      } catch (e) {
-        console.error("countdown check failed", e);
-      }
-    };
-    checkIfEnded();
-
-    // update every 15s so remaining time and end detection stays accurate
-    const iv = setInterval(() => {
-      setTimeNowTick((t) => t + 1);
-      checkIfEnded();
-    }, 15000);
-
-    return () => clearInterval(iv);
-  }, [auction?.endTime]);*/
-
   // SignalR — subscribe to auction updates (live)
   useEffect(() => {
     const token = localStorage.getItem("token") ?? undefined;
@@ -263,8 +233,7 @@ const formatTimeRemaining = (endTime?: string | null) => {
       try {
         const aid = payload?.AuctionId ?? payload?.auctionId ?? payload?.id ?? payload;
         if (String(aid) === String(id)) {
-          setIsEnded(true);
-          setAuction((a) => (a ? { ...a, status: "Ended" } : a));
+          setAuction((a) => (a ? { ...a, isClosed: true, status: "Ended" } : a));
           // optional: include final winner info in recentBids or show toast
         }
       } catch (e) {
@@ -277,8 +246,7 @@ const formatTimeRemaining = (endTime?: string | null) => {
       try {
         const aid = payload?.AuctionId ?? payload?.auctionId ?? payload?.id ?? payload;
         if (String(aid) === String(id)) {
-          setIsEnded(true);
-          setAuction((a) => (a ? { ...a, status: "Ended" } : a));
+          setAuction((a) => (a ? { ...a, isClosed: true, status: "Ended" } : a));
         }
       } catch (e) {
         console.error("AuctionClosed handler error", e);
