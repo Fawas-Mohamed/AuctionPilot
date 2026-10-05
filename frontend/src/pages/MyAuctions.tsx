@@ -1,5 +1,5 @@
 import { useServerRefresh } from "@/hooks/useServerRefresh";
-import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { API_URL, SIGNALR_URL, imageUrl } from "@/lib/config";
 import { createAuctionConnection } from "@/lib/signalr";
 // src/pages/MyAuctions.tsx
 import React, { useEffect, useState } from "react";
@@ -14,9 +14,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import api from "@/lib/api";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 
+type Auction = {
+  id: number;
+  title: string;
+  imageUrl?: string | null;
+  status: string;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+  startPrice?: number;
+  currentPrice?: number;
+  bidCount?: number;
+};
+
 const MyAuctions: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
-  const [auctions, setAuctions] = useState<any[]>([]);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [myBids, setMyBids] = useState<any[]>([]);
@@ -274,16 +287,18 @@ useEffect(() => { void loadMyBids(); }, []);
                     <CardContent className="p-6">
                       <div className="flex flex-col lg:flex-row gap-6">
                         <div className="w-full lg:w-48 aspect-[4/3] overflow-hidden rounded-lg bg-muted">
-  <img
-    src={
-      auction.imageUrl.startsWith("http")
-        ? auction.imageUrl
-        : `${BACKEND_ORIGIN}${auction.imageUrl}`
-    }
-    alt={auction.title}
-    className="w-full h-full object-cover"
-  />
-</div>
+                          {auction.imageUrl ? (
+                            <img
+                              src={imageUrl(auction.imageUrl)}
+                              alt={auction.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                              No image
+                            </div>
+                          )}
+                        </div>
 
                         <div className="flex-1 space-y-4">
                           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
