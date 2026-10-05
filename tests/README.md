@@ -41,3 +41,5 @@ After Render reports successful remote Docker build/startup, run from PowerShell
     ./tests/Check-DemoBackend.ps1 -BackendOrigin https://ACTUAL-RENDER-HOST.onrender.com
 
 After the preview's exact origin is configured in Render CORS, also supply -FrontendOrigin https://ACTUAL-PREVIEW.vercel.app. This script performs one bounded liveness/readiness/state/CORS check; it does not keep the service awake.
+
+For the persisted closure regression, also set AUCTIONPILOT_CLOSED_AUCTION_ID to an existing synthetic auction that is confirmed closed in the demo database. The browser checks the real API flag and verifies that a direct load disables bidding without waiting for a realtime event. This check rejects mock mode; the fixture must exist and be closed rather than silently skipping the regression.
