@@ -41,8 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       const res = await api.get("/auth/me");
       setUser(res.data);
-    } catch {
-      localStorage.removeItem("token");
+    } catch (error: any) {
+      if (error.response?.status === 401) localStorage.removeItem("token");
       setUser(null);
     } finally {
       setLoading(false);
@@ -51,6 +51,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     void refreshUser();
+    const expired = () => { setUser(null); };
+    window.addEventListener("auctionpilot:unauthorized", expired);
+    return () => window.removeEventListener("auctionpilot:unauthorized", expired);
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -65,6 +68,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    window.dispatchEvent(new Event("auctionpilot:unauthorized"));
     setUser(null);
   };
 

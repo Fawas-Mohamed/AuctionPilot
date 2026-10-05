@@ -6,6 +6,7 @@ export async function login(email: string, password: string) {
   const res = await api.post("/auth/login", { email, password });
   const { token, user } = res.data;
   if (token) localStorage.setItem("token", token);
+  if (user?.id) localStorage.setItem("userId", user.id);
   return res.data; 
 }
 
@@ -13,6 +14,7 @@ export async function register(email: string, password: string, displayName?: st
   const res = await api.post("/auth/register", { email, password, displayName });
   const { token, user } = res.data;
   if (token) localStorage.setItem("token", token);
+  if (user?.id) localStorage.setItem("userId", user.id);
   return res.data; 
 }
 

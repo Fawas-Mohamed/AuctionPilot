@@ -1,4 +1,8 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { createAuctionConnection } from "@/lib/signalr";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api"; // your axios wrapper
 import { HubConnectionBuilder, HubConnection, LogLevel } from "@microsoft/signalr";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +55,8 @@ type Auction = {
   startTime?: string;
   endTime?: string;
   status?: string | number;
+  isClosed?: boolean;
+  hasWinner?: boolean;
   bidCount?: number;
   categoryId?: number | null;
   category?: { id?: number; name?: string } | null;
@@ -63,6 +69,8 @@ type DailySales = { date: string; sales: number };
 const PIE_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7f7f"];
 
 export default function AdminDashboard() {
+  const { user: signedInUser, loading: authLoading } = useAuth();
+  const isAdmin = signedInUser?.roles?.includes("Admin") ?? false;
   // --- profile/header state ---
   const [user, setUser] = useState<any>({
     id: undefined,
@@ -92,13 +100,16 @@ export default function AdminDashboard() {
   const navigateTo = (path: string) => { window.location.href = path; };
 
   // ------------------ load profile ------------------
+  useServerRefresh(async () => { const r = await api.get("/auctions"); setAuctions(r.data); recomputeMetrics(r.data, salesDaily); });
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
         const profileRes = await api.get("/account/profile").catch(() => ({ data: null }));
         if (!mounted) return;
-        if (profileRes?.data) setUser(prev => ({ ...prev, ...profileRes.data }));
+        if (profileRes?.data) setUser(prev => ({ ...prev, ...profileRes.data,
+          avatar: profileRes.data.avatarUrl, memberSince: new Date(profileRes.data.memberSince).toLocaleDateString() }));
       } catch (e) {
         console.error("Profile load error", e);
       }
@@ -112,20 +123,18 @@ export default function AdminDashboard() {
     let mounted = true;
     const load = async () => {
       try {
-        const auctionsRes = await api.get<Auction[]>("/admin/auctions");
+        const auctionsRes = await api.get<Auction[]>("/auctions");
         const rawAucs = auctionsRes?.data ?? [];
 
         let watchlistRes;
         try { watchlistRes = await api.get<WatchlistItem[]>("/watchlist"); } catch { watchlistRes = { data: [] } as any; }
 
-        let salesRes;
-        try { salesRes = await api.get<{ todaySales: number; monthSales: number; lostAuctions: number; daily: DailySales[] }>("/admin/reports/sales"); } catch { salesRes = null; }
 
         if (!mounted) return;
 
         setAuctions(rawAucs);
         setWatchlistCount((watchlistRes?.data?.length) ?? 0);
-        recomputeMetrics(rawAucs, salesRes?.data?.daily ?? []);
+        recomputeMetrics(rawAucs);
       } catch (err: any) {
         console.error("Dashboard load failed:", err);
         toast.error("Failed to load dashboard data (see console).");
@@ -140,6 +149,7 @@ export default function AdminDashboard() {
   const recomputeMetrics = (aucs: Auction[], sales?: DailySales[]) => {
     setActiveAuctions(aucs.filter(a => {
       try {
+        if (a.isClosed || a.status === "Closed" || a.status === 3) return false;
         if (!a.startTime || !a.endTime) return a.status !== "Closed" && a.status !== 3;
         const now = Date.now();
         const s = new Date(a.startTime).getTime();
@@ -182,15 +192,12 @@ export default function AdminDashboard() {
 
   // ------------------ SignalR setup ------------------
   useEffect(() => {
+    if (authLoading || !signedInUser) return;
     const startSignalR = async () => {
       try {
-        const base = (import.meta.env.VITE_API_URL ?? "https://localhost:62628").replace(/\/$/, "");
-        const hubUrl = (import.meta.env.VITE_SIGNALR_URL ?? `${base}/hubs/auction`);
-        const conn = new HubConnectionBuilder()
-          .withUrl(hubUrl, { accessTokenFactory: () => localStorage.getItem("token") ?? "" })
-          .withAutomaticReconnect()
-          .configureLogging(LogLevel.Information)
-          .build();
+        const base = BACKEND_ORIGIN;
+        const hubUrl = (SIGNALR_URL ?? `${base}/hubs/auction`);
+        const conn = createAuctionConnection();
 
         hubRef.current = conn;
 
@@ -203,7 +210,7 @@ export default function AdminDashboard() {
               return next;
             });
           } else {
-            void api.get("/admin/auctions").then(r => { setAuctions(r.data); recomputeMetrics(r.data, salesDaily); }).catch(()=>{});
+            void api.get("/auctions").then(r => { setAuctions(r.data); recomputeMetrics(r.data, salesDaily); }).catch(()=>{});
           }
         });
 
@@ -274,7 +281,6 @@ export default function AdminDashboard() {
         // join user-specific group if possible
         const myId = userRef.current?.id ?? localStorage.getItem("userId");
         if (myId) {
-          try { await conn.invoke("AddToGroup", `user-${myId}`); } catch (e) { /* non-fatal */ }
         }
       } catch (err) {
         console.warn("SignalR start failed", err);
@@ -287,7 +293,7 @@ export default function AdminDashboard() {
       if (hubRef.current) { hubRef.current.stop().catch(() => {}); hubRef.current = null; }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, signedInUser?.id]);
   const PIE_COLORS = [
     "#2563eb", // Active - blue
     "#16a34a", // Closed - green
@@ -320,7 +326,7 @@ export default function AdminDashboard() {
       try {
         const s = a.startTime ? new Date(a.startTime).getTime() : undefined;
         const e = a.endTime ? new Date(a.endTime).getTime() : undefined;
-        if (e && e < now) counts.Closed++;
+        if (a.isClosed || a.status === "Closed" || a.status === 3 || (e && e < now)) counts.Closed++;
         else if (s && s > now) counts.Upcoming++;
         else if ((s && e && s <= now && e >= now) || (!s && !e && a.status !== "Closed")) counts.Active++;
         else counts.Other++;
@@ -350,17 +356,17 @@ export default function AdminDashboard() {
               <h1 className="text-3xl font-bold mb-2">{user.name}</h1>
               <p className="text-gray-200 mb-2">{user.email}</p>
               <div className="flex items-center space-x-4 text-sm">
-                <span>Admin</span>
+                <span>{isAdmin ? "Admin" : "Demo Member"}</span>
                 <span>Member since {user.memberSince || "—"}</span>
               </div>
             </div>
 
             {/* quick action buttons (kept only in header) */}
             <div className="flex items-center space-x-2">
-              <Button size="sm" variant="ghost" onClick={() => navigateTo("/usermanage")}>
+              <Button size="sm" variant="ghost" disabled={!isAdmin} onClick={() => navigateTo("/usermanage")}>
                 <UsersIcon className="h-4 w-4 mr-2" /> User Manage
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => navigateTo("/auctionmanage")}>
+              <Button size="sm" variant="ghost" disabled={!isAdmin} onClick={() => navigateTo("/auctionmanage")}>
                 <AuctionIcon className="h-4 w-4 mr-2" /> Auction Manage
               </Button>
               <Button size="sm" variant="ghost" onClick={() => navigateTo("/my-auctions")}>
@@ -387,7 +393,7 @@ export default function AdminDashboard() {
 
         {/* debug / last event */}
         <div className="flex items-center justify-end gap-2 mb-4">
-          <Button size="sm" variant="ghost" onClick={async () => { const r = await api.get('/account/watchlist'); /* won't fail UI */ }}>
+          <Button size="sm" variant="ghost" onClick={async () => { const r = await api.get("/watchlist"); setWatchlistCount(r.data?.length ?? 0); }}>
             Refresh Watchlist
           </Button>
           <div className="text-sm text-muted-foreground">Last watch event:</div>
@@ -398,7 +404,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
           <Card><CardContent><div className="text-sm">Watchlist</div><div className="text-2xl font-bold">{watchlistCount}</div></CardContent></Card>
           <Card><CardContent><div className="text-sm">Total Bids</div><div className="text-2xl font-bold">{totalBids}</div></CardContent></Card>
-          <Card><CardContent><div className="text-sm">Total Spend</div><div className="text-2xl font-bold">{formatPrice(totalSpend)}</div></CardContent></Card>
+          <Card><CardContent><div className="text-sm">Demo Closing Total</div><div className="text-2xl font-bold">{formatPrice(totalSpend)}</div></CardContent></Card>
           <Card><CardContent><div className="text-sm">Active Auctions</div><div className="text-2xl font-bold">{activeAuctions}</div></CardContent></Card>
         </div>
 
@@ -407,14 +413,14 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-semibold">Sales Overview (last 7 days)</h2>
+                <h2 className="text-lg font-semibold">Demo Auction Values (last 7 days)</h2>
                 <div className="text-sm text-muted-foreground">Live updates via SignalR</div>
               </div>
               <div className="space-x-2">
-                <Button size="sm" onClick={() => { void api.get("/admin/reports/sales").then(r => { setSalesDaily(r.data.daily ?? []); toast.success("Reports refreshed"); }).catch(()=> toast.error("Failed to refresh reports")); }}>
+                <Button size="sm" onClick={() => { void api.get("/auctions").then(r => { setAuctions(r.data); recomputeMetrics(r.data); toast.success("Reports refreshed"); }).catch(()=> toast.error("Failed to refresh reports")); }}>
                   Refresh Reports
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => { void api.get("/admin/auctions").then(r => { setAuctions(r.data); recomputeMetrics(r.data); toast.success("Auctions refreshed"); }).catch(()=> toast.error("Failed to refresh auctions")); }}>
+                <Button size="sm" variant="outline" onClick={() => { void api.get("/auctions").then(r => { setAuctions(r.data); recomputeMetrics(r.data); toast.success("Auctions refreshed"); }).catch(()=> toast.error("Failed to refresh auctions")); }}>
                   Refresh Auctions
                 </Button>
               </div>
@@ -464,8 +470,8 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-semibold">Sales Trend (last 7 days)</h2>
-                <div className="text-sm text-muted-foreground">Sales by day — live-updated</div>
+                <h2 className="text-lg font-semibold">Demo Value Trend (last 7 days)</h2>
+                <div className="text-sm text-muted-foreground">Demo values by day — live-updated</div>
               </div>
             </div>
 

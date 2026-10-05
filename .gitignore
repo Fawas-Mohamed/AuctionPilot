@@ -1,0 +1,8 @@
+.local/
+artifacts/
+**/bin/
+**/obj/
+**/TestResults/
+.env
+.env.*
+!.env.example

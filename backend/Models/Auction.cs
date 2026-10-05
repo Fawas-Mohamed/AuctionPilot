@@ -1,49 +1,37 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
-namespace AuctionApi.Models
+namespace AuctionApi.Models;
+
+public enum AuctionStatus { Draft = 0, Scheduled = 1, Live = 2, Closed = 3 }
+
+public class Auction
 {
-    public enum AuctionStatus { Draft = 0, Scheduled = 1, Live = 2, Closed = 3 }
-
-    public class Auction
-    {
-        public int Id { get; set; }
-
-        [Required]
-        public string Title { get; set; } = "";
-
-        public string? Description { get; set; }
-        public string? ImageUrl { get; set; }
-
-        public decimal StartPrice { get; set; }
-        public decimal CurrentPrice { get; set; }
-
-        public DateTimeOffset StartTime { get; set; }
-        public DateTimeOffset EndTime { get; set; }
-
-
-        public string? SellerId { get; set; }
-
-        public bool IsClosed { get; set; } = false;   
-        public string? WinnerUserId { get; set; }     
-        public decimal? ReservePrice { get; set; }
-        public string? CreatedById { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-
-        public AuctionStatus Status { get; set; } = AuctionStatus.Scheduled;
-
-        public int BidCount { get; set; }
-
-        public string? WinnerId { get; set; }
-        public ApplicationUser? Winner { get; set; }
-
-        public virtual ICollection<Bid>? Bids { get; set; }
-        public int? CategoryId { get; set; }
-        public Category? Category { get; set; }     
-        public ApplicationUser Seller { get; set; }
-
-        [Timestamp]
-        public byte[]? RowVersion { get; set; }
-    }
-    
+    public int Id { get; set; }
+    [Required, MaxLength(200)] public string Title { get; set; } = "";
+    [MaxLength(10000)] public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
+    public int? ImageAssetId { get; set; }
+    [JsonIgnore] public ImageAsset? ImageAsset { get; set; }
+    public decimal StartPrice { get; set; }
+    public decimal CurrentPrice { get; set; }
+    public decimal? ReservePrice { get; set; }
+    public DateTimeOffset StartTime { get; set; }
+    public DateTimeOffset EndTime { get; set; }
+    public DateTimeOffset? ClosedAt { get; set; }
+    public string? SellerId { get; set; }
+    public string? CreatedById { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsClosed { get; set; }
+    public AuctionStatus Status { get; set; } = AuctionStatus.Scheduled;
+    public int BidCount { get; set; }
+    public string? WinnerId { get; set; }
+    // Keep both legacy winner columns consistent; neither is set until closure.
+    public string? WinnerUserId { get; set; }
+    [JsonIgnore] public ApplicationUser? Winner { get; set; }
+    [JsonIgnore] public ApplicationUser? Seller { get; set; }
+    [JsonIgnore] public ICollection<Bid> Bids { get; set; } = new List<Bid>();
+    public int? CategoryId { get; set; }
+    public Category? Category { get; set; }
+    [Timestamp, JsonIgnore] public uint Version { get; set; }
 }

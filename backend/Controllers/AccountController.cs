@@ -1,153 +1,81 @@
-﻿// Controllers/AccountController.cs
-using System.Linq;
-using System.Threading.Tasks;
+using System.Security.Claims;
+using AuctionApi.Data;
+using AuctionApi.Models;
+using AuctionApi.Services;
+using AuctionApi.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using AuctionApi.Data;
-using AuctionApi.Models;
+namespace AuctionApi.Controllers;
 
-namespace AuctionApi.Controllers
+[ApiController, Route("api/account"), Authorize]
+public class AccountController(UserManager<ApplicationUser> users, ApplicationDbContext db,
+    ImageAssetService images, TimeProvider clock) : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class AccountController : ControllerBase
+    private object Profile(ApplicationUser user) => new { id = user.Id, name = user.DisplayName ?? user.UserName,
+        email = user.Email, phone = user.PhoneNumber, avatarUrl = user.AvatarUrl, memberSince = user.CreatedAt };
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetProfile()
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ApplicationDbContext _db;
-
-        public AccountController(UserManager<ApplicationUser> userManager, ApplicationDbContext db)
-        {
-            _userManager = userManager;
-            _db = db;
-        }
-
-        // GET: api/account/profile
-        [HttpGet("profile")]
-        [Authorize]
-        public async Task<IActionResult> GetProfile()
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Unauthorized();
-
-            return Ok(new
-            {
-                id = user.Id,
-                name = user.DisplayName ?? user.UserName,
-                email = user.Email,
-                phone = user.PhoneNumber,        
-                avatarUrl = user.AvatarUrl,      
-                memberSince = user.CreatedAt     
-            });
-        }
-
-        // PUT: api/account/profile
-        [HttpPut("profile")]
-        [Authorize]
-        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Unauthorized();
-
-            user.DisplayName = dto.Name ?? user.DisplayName;
-            user.PhoneNumber = dto.PhoneNumber ?? user.PhoneNumber; 
-            user.AvatarUrl = dto.AvatarUrl ?? user.AvatarUrl;
-
-            var result = await _userManager.UpdateAsync(user);
-            if (!result.Succeeded) return BadRequest(result.Errors);
-
-            // ✅ optionally return updated profile so frontend gets it instantly
-            return Ok(new
-            {
-                id = user.Id,
-                name = user.DisplayName,
-                email = user.Email,
-                phone = user.PhoneNumber,
-                avatarUrl = user.AvatarUrl,
-                memberSince = user.CreatedAt
-            });
-        }
-
-        // GET: api/account/stats
-        [HttpGet("stats")]
-        [Authorize]
-        public async Task<IActionResult> GetStats()
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Unauthorized();
-
-            var won = 0;
-            if (_db.Set<Auction>() != null)
-            {
-                won = await _db.Auctions.CountAsync(a => a.WinnerId == user.Id);
-            }
-
-            var totalSpent = 0m;
-            if (_db.Set<Bid>() != null)
-            {
-                totalSpent = await _db.Bids
-                    .Where(b => b.BidderId == user.Id && b.Auction != null && b.Auction.WinnerId == user.Id)
-                    .SumAsync(b => (decimal?)b.Amount) ?? 0m;
-            }
-
-            var watched = 0;
-            if (_db.Set<WatchlistItem>() != null)
-            {
-                watched = await _db.Set<WatchlistItem>().CountAsync(w => w.UserId == user.Id);
-            }
-
-            var activeBids = 0;
-            if (_db.Set<Bid>() != null)
-            {
-                activeBids = await _db.Bids
-                    .Where(b => b.BidderId == user.Id && b.Auction != null && b.Auction.Status == AuctionStatus.Live)
-                    .CountAsync();
-            }
-
-            var result = new[]
-            {
-                new { label = "Auctions Won", value = won.ToString() },
-                new { label = "Total Spent", value = $"${totalSpent:N0}" },
-                new { label = "Items Watched", value = watched.ToString() },
-                new { label = "Active Bids", value = activeBids.ToString() }
-            };
-
-            return Ok(result);
-        }
-        [Authorize]
-        [HttpPost("avatar")]
-        public async Task<IActionResult> UploadAvatar(IFormFile file)
-        {
-            if (file == null || file.Length == 0)
-                return BadRequest("No file");
-
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Unauthorized();
-
-            var uploadsPath = Path.Combine("wwwroot", "uploads");
-            Directory.CreateDirectory(uploadsPath);
-
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-            var filePath = Path.Combine(uploadsPath, fileName);
-
-            using var stream = new FileStream(filePath, FileMode.Create);
-            await file.CopyToAsync(stream);
-
-            user.AvatarUrl = $"/uploads/{fileName}";
-            await _userManager.UpdateAsync(user);
-
-            return Ok(new { avatarUrl = user.AvatarUrl });
-        }
-
+        var user = await users.GetUserAsync(User);
+        return user == null ? Unauthorized() : Ok(Profile(user));
     }
-
-    public record UpdateProfileDto(string? Name, string? PhoneNumber, string? AvatarUrl);
-
-    public class WatchlistItem
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile(UpdateProfileDto dto, CancellationToken ct)
     {
-        public int Id { get; set; }
-        public string UserId { get; set; } = default!;
-        public int AuctionId { get; set; }
+        var user = await users.GetUserAsync(User);
+        if (user == null) return Unauthorized();
+        if (dto.Name?.Length > 100 || dto.PhoneNumber?.Length > 30) return BadRequest(new { message = "Profile values are too long." });
+        if (dto.AvatarUrl != null && dto.AvatarUrl != user.AvatarUrl)
+        {
+            var asset = await db.ImageAssets.SingleOrDefaultAsync(i => i.OwnerId == user.Id && i.SecureUrl == dto.AvatarUrl, ct);
+            if (asset == null) return BadRequest(new { message = "Use an avatar uploaded by this account." });
+            user.AvatarUrl = asset.SecureUrl; user.AvatarAssetId = asset.Id;
+        }
+        user.DisplayName = dto.Name ?? user.DisplayName;
+        user.PhoneNumber = dto.PhoneNumber ?? user.PhoneNumber;
+        var result = await users.UpdateAsync(user);
+        return result.Succeeded ? Ok(Profile(user)) : BadRequest(result.Errors);
+    }
+    [HttpGet("stats")]
+    public async Task<IActionResult> Stats(CancellationToken ct)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var won = db.Auctions.AsNoTracking().Where(a => a.IsClosed && a.WinnerId == userId);
+        var wonCount = await won.CountAsync(ct);
+        var winningTotal = await won.SumAsync(a => (decimal?)a.CurrentPrice, ct) ?? 0;
+        var watched = await db.Watchlists.CountAsync(w => w.UserId == userId, ct);
+        var now = clock.GetUtcNow();
+        var active = await db.Bids.Where(b => b.BidderId == userId && !b.Auction.IsClosed &&
+            b.Auction.StartTime <= now && b.Auction.EndTime > now).Select(b => b.AuctionId).Distinct().CountAsync(ct);
+        return Ok(new[]
+        {
+            new { label = "Demo Auctions Won", value = wonCount.ToString() },
+            new { label = "Demo Winning Total", value = $"LKR {winningTotal:N0}" },
+            new { label = "Items Watched", value = watched.ToString() },
+            new { label = "Active Bids", value = active.ToString() }
+        });
+    }
+    [HttpPost("avatar"), EnableRateLimiting("uploads"), Consumes("multipart/form-data")]
+    [RequestSizeLimit(ImageUploadValidation.MaxBytes + 65536)]
+    [RequestFormLimits(MultipartBodyLengthLimit = ImageUploadValidation.MaxBytes + 65536)]
+    public async Task<IActionResult> UploadAvatar([FromForm] IFormFile file, CancellationToken ct)
+    {
+        var user = await users.GetUserAsync(User);
+        if (user == null) return Unauthorized();
+        try
+        {
+            var asset = await images.UploadAsync(file, user.Id, ct);
+            user.AvatarUrl = asset.SecureUrl;
+            user.AvatarAssetId = asset.Id;
+            var result = await users.UpdateAsync(user);
+            if (!result.Succeeded) return StatusCode(502, new { message = "Avatar could not be saved." });
+            return Ok(new { avatarUrl = user.AvatarUrl, assetId = asset.Id });
+        }
+        catch (InvalidImageException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (ImageStorageException ex) { return StatusCode(502, new { message = ex.Message }); }
     }
 }
+public record UpdateProfileDto(string? Name, string? PhoneNumber, string? AvatarUrl);

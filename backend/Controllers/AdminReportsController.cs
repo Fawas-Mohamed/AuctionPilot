@@ -1,6 +1,7 @@
-﻿using AuctionApi.Data;
+using AuctionApi.Data;
 using AuctionApi.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace AuctionApp.Controllers.Admin
 {
-    [ApiController]
+    [ApiController, Authorize(Roles = "Admin")]
     [Route("api/admin/reports")]
     public class AdminReportsController : ControllerBase
     {
@@ -26,7 +27,7 @@ namespace AuctionApp.Controllers.Admin
             var today = DateTime.UtcNow.Date;
 
             var totalSales = await _context.Orders
-                .Where(o => o.CreatedAt.Date == today)
+                .Where(o => o.Status == "Paid" && o.CreatedAt.Date == today)
                 .SumAsync(o => (decimal?)o.Amount) ?? 0;
 
             return Ok(new { totalSales });
@@ -38,7 +39,7 @@ namespace AuctionApp.Controllers.Admin
         {
             var now = DateTime.UtcNow;
             var totalSales = await _context.Orders
-                .Where(o => o.CreatedAt.Year == now.Year && o.CreatedAt.Month == now.Month)
+                .Where(o => o.Status == "Paid" && o.CreatedAt.Year == now.Year && o.CreatedAt.Month == now.Month)
                 .SumAsync(o => (decimal?)o.Amount) ?? 0;
 
             return Ok(new { totalSales });
@@ -50,7 +51,7 @@ namespace AuctionApp.Controllers.Admin
         {
             var lostCount = await _context.Auctions
                 .Where(a => a.Status == AuctionStatus.Closed &&
-                           (a.Bids == null || a.Bids.Count == 0 ||
+                           (!a.Bids.Any() ||
                             (a.ReservePrice != null && a.CurrentPrice < a.ReservePrice)))
                 .CountAsync();
 
@@ -64,7 +65,7 @@ namespace AuctionApp.Controllers.Admin
             var now = DateTime.UtcNow;
 
             var dailySales = await _context.Orders
-                .Where(o => o.CreatedAt.Year == now.Year && o.CreatedAt.Month == now.Month)
+                .Where(o => o.Status == "Paid" && o.CreatedAt.Year == now.Year && o.CreatedAt.Month == now.Month)
                 .GroupBy(o => o.CreatedAt.Date)
                 .Select(g => new
                 {

@@ -30,45 +30,7 @@ const CreateConsignment: React.FC = () => {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      const fd = new FormData();
-      fd.append("FirstName", firstName);
-      fd.append("LastName", lastName);
-      fd.append("Email", email);
-      if (phone) fd.append("Phone", phone);
-      fd.append("Category", category);
-      fd.append("ItemTitle", itemTitle);
-      if (artist) fd.append("Artist", artist);
-      if (year) fd.append("Year", year);
-      if (dimensions) fd.append("Dimensions", dimensions);
-      if (condition) fd.append("Condition", condition);
-      if (provenance) fd.append("Provenance", provenance);
-      if (description) fd.append("Description", description);
-      if (estimate) fd.append("Estimate", estimate);
-      if (files && files.length > 0) {
-        Array.from(files).forEach((f) => fd.append("Images", f));
-      }
-
-      const res = await api.post("/consignments", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      // server returns { Id = ... } in CreatedAtAction result; backend returns new { cons.Id }
-      const createdId = res.data?.id ?? res.data?.Id ?? res.data?.id;
-      setSuccessId(createdId ?? null);
-
-      // redirect to a thank-you page, or to auctions page or consignment details
-      if (createdId) navigate(`/consignments/${createdId}`);
-      else navigate("/"); // fallback
-    } catch (err: any) {
-      console.error("submit failed", err);
-      setError(err?.response?.data || err.message || "Create failed");
-    } finally {
-      setLoading(false);
-    }
+    setError("Consignments are unavailable in this portfolio demo. No payment, shipping or settlement.");
   }
 
   return (
@@ -76,7 +38,8 @@ const CreateConsignment: React.FC = () => {
       <Card className="max-w-3xl mx-auto">
         <CardContent>
           <h2 className="text-2xl font-bold mb-4">Submit Item for Consignment</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <p className="text-sm text-muted-foreground mb-4" role="note">Consignments are unavailable in this portfolio demo.</p>
+          <form aria-disabled="true" onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>First name</Label>
@@ -153,7 +116,7 @@ const CreateConsignment: React.FC = () => {
             {error && <div className="text-red-600">{String(error)}</div>}
 
             <div className="flex gap-3">
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled>
                 {loading ? "Submitting..." : "Submit for Evaluation"}
               </Button>
               <Button type="button" variant="outline" onClick={() => navigate("/sell")}>

@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ children }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [theme, setTheme] = useState("");
 
-  
+
   const location = useLocation();
   const { user, loading, logout } = useAuth();
   const isActive = (path: string) => location.pathname === path;
@@ -51,7 +51,7 @@ function MenuItem({ to, label, highlight = false }: MenuItemProps) {
     </Link>
   );
 }
- 
+
 useEffect(() => {
   const handleClick = () => {
     setIsMenuOpen(false);
@@ -61,20 +61,9 @@ useEffect(() => {
   document.addEventListener("click", handleClick);
   return () => document.removeEventListener("click", handleClick);
 }, []);
-  
+
     // 🔔 Start SignalR connection when user is logged in
-    useEffect(() => {
-      if (!token) return;
-  
-      startHub(() => token, {
-        NotificationCreated: (payload: any) => {
-          console.log("🔔 Notification received:", payload);
-        },
-        AuctionClosed: (payload: any) => {
-          console.log("🏁 Auction closed:", payload);
-        },
-      });
-    }, [token]);
+
     const toggleTheme = () => {
   const next = theme === "dark" ? "light" : "dark";
   setTheme(next);
@@ -96,7 +85,7 @@ useEffect(() => {
             <Gavel className="h-8 w-8 text-auction-gold" />
             <span className="text-2xl font-bold text-auction-navy">AuctionPilot</span>
           </Link>
-            
+
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             <Link
@@ -140,10 +129,10 @@ useEffect(() => {
               How It Works
             </Link>
           </nav>
-          
+
 
           {/* Right side actions */}
-          <div className="flex items-center space-x-4">     
+          <div className="flex items-center space-x-4">
             <Button variant="ghost" size="icon" asChild>
               <button aria-label="Search">
                 <Search className="h-5 w-5" />
@@ -155,7 +144,7 @@ useEffect(() => {
                 <button aria-label="Favorites">
                   <Heart className="h-5 w-5" />
                 </button>
-              </Button>  
+              </Button>
             </Link>
             <div onClick={(e) => e.stopPropagation()}className="relative">
             <NotificationBell getToken={() => token}
@@ -201,7 +190,7 @@ useEffect(() => {
     {/* Dropdown */}
     {isMenuOpen && (
       <div className="absolute right-0 mt-3 w-64 rounded-xl border bg-white shadow-lg backdrop-blur z-50 overflow-hidden">
-        
+
         {/* User Info */}
         <div className="px-4 py-3 border-b">
           <p className="text-sm font-semibold truncate">
@@ -248,11 +237,11 @@ useEffect(() => {
 
             ) : (
               <>
-           
+
                 <Link to="/login">
                   <Button variant="gold" className="hidden sm:inline">Start Bidding</Button>
                 </Link>
-        
+
 
 
 

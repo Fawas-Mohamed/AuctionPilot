@@ -1,3 +1,5 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AuctionCard } from "@/components/AuctionCard";
@@ -49,11 +51,8 @@ const Index = () => {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState();
   
-  const apiBase = (
-  import.meta.env.VITE_API_URL ??
-  "https://localhost:62628"
-).replace(/\/api$/, "").replace(/\/$/, "");
-  const signalRUrl = import.meta.env.VITE_SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
+  const apiBase = BACKEND_ORIGIN;
+  const signalRUrl = SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
 
   // helper: normalize image URL (if relative -> prefix with API base)
    const normalizeImage = (imageUrl: string | null | undefined) => {
@@ -70,6 +69,8 @@ const Index = () => {
       console.error("Failed to load auctions", err);
     }
   }
+  useServerRefresh(async () => { await fetchAuctions(); });
+
   useEffect(() => {
       void fetchAuctions();
     }, []);

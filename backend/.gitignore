@@ -22,7 +22,9 @@ wwwroot/uploads/
 
 # Development settings
 appsettings.Development.json
-
+.env
+.env.*
+!.env.example
 
 # OS files
 .DS_Store

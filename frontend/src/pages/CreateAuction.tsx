@@ -60,8 +60,8 @@ const CreateAuction: React.FC = () => {
         description,
         imageUrl,
         startPrice: Number(startPrice),
-        startTime,
-        endTime,
+        startTime: new Date(startTime).toISOString(),
+        endTime: new Date(endTime).toISOString(),
         categoryId: categoryId ?? undefined
       };
 
@@ -95,7 +95,7 @@ const CreateAuction: React.FC = () => {
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
-            <Input type="file" accept="image/*" onChange={(e)=>setFile(e.target.files?.[0] ?? null)} />
+            <Input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e)=>setFile(e.target.files?.[0] ?? null)} />
             {error && <p className="text-red-500">{error}</p>}
             <Button type="submit" disabled={loading}>{loading ? "Creating..." : "Create Auction"}</Button>
           </form>

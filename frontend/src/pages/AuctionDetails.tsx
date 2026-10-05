@@ -1,3 +1,7 @@
+import { submitBid } from "@/lib/bidding";
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { createAuctionConnection } from "@/lib/signalr";
 // src/pages/AuctionDetails.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -46,6 +50,7 @@ const AuctionDetails: React.FC = () => {
   const [auction, setAuction] = useState<AuctionDto | null>(null);
   const [recentBids, setRecentBids] = useState<Array<{ bidder: string; amount: number; time: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [bidAmount, setBidAmount] = useState("");
   const [isFavorited, setIsFavorited] = useState(false);
   const [debugLog, setDebugLog] = useState<string[]>([]);
@@ -97,7 +102,9 @@ const AuctionDetails: React.FC = () => {
   
  
    // tick every 15 seconds to refresh displayed remaining times
-   useEffect(() => {
+   useServerRefresh(async () => { if (id) { const [a,b] = await Promise.all([api.get("/auctions/" + id), api.get("/bids/" + id)]); setAuction(a.data); setRecentBids(b.data.slice(0,20)); } });
+
+  useEffect(() => {
      const iv = setInterval(() => setTimeTick((t) => t + 1), 15000);
      return () => clearInterval(iv);
    }, []);  
@@ -152,7 +159,7 @@ const formatTimeRemaining = (endTime?: string | null) => {
           const bidsRes = await api.get(`/bids/${id}`);
           if (mounted && bidsRes?.data) {
             // Expecting an array of { bidder, amount, time }
-            setRecentBids(bidsRes.data.slice(-20).reverse());
+            setRecentBids(bidsRes.data.slice(0,20));
           }
         } catch {
           // ignore; maybe backend doesn't expose bids endpoint
@@ -218,59 +225,24 @@ const formatTimeRemaining = (endTime?: string | null) => {
   // SignalR — subscribe to auction updates (live)
   useEffect(() => {
     const token = localStorage.getItem("token") ?? undefined;
-    const envSignalR = (import.meta.env as any).VITE_SIGNALR_URL as string | undefined;
-    const apiUrl = (import.meta.env as any).VITE_API_URL as string | undefined;
+    const envSignalR = SIGNALR_URL as string | undefined;
+    const apiUrl = API_URL as string | undefined;
     const fallback = apiUrl ? `${apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "")}/hubs/auction` : `${window.location.origin}/hubs/auction`;
     const hubUrl = envSignalR ?? fallback;
 
     pushDebug(`SignalR will try ${hubUrl}`);
 
-    const conn = new HubConnectionBuilder()
-      .withUrl(hubUrl, { accessTokenFactory: () => (token ? token : undefined) })
-      .configureLogging(LogLevel.Warning)
-      .withAutomaticReconnect()
-      .build();
+    const conn = createAuctionConnection();
 
     hubRef.current = conn;
 
     // Unified handler for BidPlaced payloads (array or object)
-    const bidHandler = (payload: any) => {
-      pushDebug(`SignalR BidPlaced received: ${JSON.stringify(payload)}`);
+    const bidHandler = async (payload: any) => {
+      if (String(payload?.auctionId ?? payload?.id) !== String(id)) return;
       try {
-        // array shape: [auctionId, newPrice, newBidCount] OR custom arrays
-        if (Array.isArray(payload) && payload.length >= 3) {
-          const [auctionId, newPrice, newBidCount] = payload;
-          if (String(auctionId) === String(id)) {
-            setAuction((a) => (a ? { ...a, currentPrice: newPrice ?? a.currentPrice, bidCount: newBidCount ?? a.bidCount } : a));
-            setRecentBids((r) => [{ bidder: "Live", amount: newPrice ?? 0, time: new Date().toISOString() }, ...r].slice(0, 20));
-          }
-          return;
-        }
-
-        // object shape: { id / auctionId, amount, bidderId, time, currentPrice, bidCount }
-        const aid = payload?.AuctionId ?? payload?.auctionId ?? payload?.id;
-        if (aid && String(aid) === String(id)) {
-          // update auction current price if present
-          const newPrice = payload?.CurrentPrice ?? payload?.currentPrice ?? payload?.amount ?? payload?.Amount;
-          const newBidCount = payload?.BidCount ?? payload?.bidCount;
-          if (typeof newPrice === "number") {
-            setAuction((a) => (a ? { ...a, currentPrice: newPrice, bidCount: newBidCount ?? a.bidCount } : a));
-          } else if (typeof payload.currentPrice === "number") {
-            setAuction((a) => (a ? { ...a, currentPrice: payload.currentPrice, bidCount: newBidCount ?? a.bidCount } : a));
-          }
-
-          // add to recent bids if we have amount
-          const amount = payload?.Amount ?? payload?.amount ?? payload?.currentPrice ?? null;
-          const bidder = payload?.BidderId ?? payload?.bidder ?? payload?.Bidder ?? "Bidder";
-          const time = payload?.Time ?? payload?.time ?? new Date().toISOString();
-          if (amount != null) {
-            setRecentBids((r) => [{ bidder, amount: Number(amount), time: new Date(time).toISOString() }, ...r].slice(0, 20));
-          }
-        }
-      } catch (e) {
-        pushDebug("Error processing BidPlaced payload");
-        console.error(e);
-      }
+        const [a, b] = await Promise.all([api.get("/auctions/" + id), api.get("/bids/" + id)]);
+        if (mountedRef.current) { setAuction(a.data); setRecentBids(b.data.slice(0, 20)); }
+      } catch { }
     };
 
     const auctionUpdatedHandler = (payload: any) => {
@@ -392,56 +364,25 @@ const formatTimeRemaining = (endTime?: string | null) => {
   const safeImage = auction.imageUrl
     ? auction.imageUrl.startsWith("http")
       ? auction.imageUrl
-      : ((import.meta.env as any).VITE_API_URL ? `${(import.meta.env as any).VITE_API_URL.replace(/\/api\/?$/, "")}${auction.imageUrl}` : auction.imageUrl)
+      : (API_URL ? `${API_URL.replace(/\/api\/?$/, "")}${auction.imageUrl}` : auction.imageUrl)
     : undefined;
 
   // Place bid function (calls backend, optimistic update)
   const placeBid = async () => {
+    if (submitting || !auction) return;
+    if (!localStorage.getItem("token")) { alert("Please login to place a bid."); return; }
+    if (isEnded) { alert("This auction has ended."); return; }
+    const amount = Number(bidAmount);
+    if (!Number.isFinite(amount) || amount <= 0) { alert("Enter a valid bid amount."); return; }
+    setSubmitting(true);
     try {
-      // guard: auction ended?
-      if (isEnded) {
-        alert("This auction has ended — bids are no longer accepted.");
-        pushDebug("Prevented PlaceBid: auction ended (client)");
-        return;
-      }
-
-      const token = localStorage.getItem("token");
-      if (!token) {
-        pushDebug("PlaceBid blocked: no token");
-        alert("Please login to place a bid.");
-        return;
-      }
-
-      const amount = Number(bidAmount);
-      if (isNaN(amount) || amount <= (auction?.currentPrice ?? 0)) {
-        alert("Please enter a valid bid amount higher than the current price.");
-        return;
-      }
-
-      // optimistic update
-      const prevPrice = auction?.currentPrice ?? 0;
-      const prevCount = auction?.bidCount ?? 0;
-      setAuction((a) => (a ? { ...a, currentPrice: amount, bidCount: (a.bidCount ?? 0) + 1 } : a));
-      setRecentBids((r) => [{ bidder: "You", amount, time: new Date().toISOString() }, ...r].slice(0, 20));
-
-      // POST to API (your server expects /api/auctions/{id}/placebid)
-      try {
-        await api.post(
-          `/auctions/${auction?.id}/placebid`,
-          { amount },
-          { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-        );
-      } catch (e: any) {
-        // revert optimistic on failure
-        setAuction((a) => (a ? { ...a, currentPrice: prevPrice, bidCount: prevCount } : a));
-        setRecentBids((r) => r.slice(1)); // remove optimistic entry
-        const msg = e?.response?.data?.message ?? e?.response?.data ?? e?.message ?? "Bid failed";
-        pushDebug(`PlaceBid failed: ${msg}`);
-        alert(`Bid failed: ${msg}`);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+      await submitBid(auction.id, amount);
+      const [a, b] = await Promise.all([api.get("/auctions/" + auction.id), api.get("/bids/" + auction.id)]);
+      setAuction(a.data);
+      setRecentBids(b.data.slice(0, 20));
+    } catch (error: any) {
+      alert(error?.response?.data?.message || "Bid could not be confirmed. Retry the same amount to check its result.");
+    } finally { setSubmitting(false); }
   };
 
   // Toggle watchlist (calls backend; server will broadcast WatchlistChanged to user's connections)
@@ -531,7 +472,7 @@ const formatTimeRemaining = (endTime?: string | null) => {
                     className="flex-1"
                     readOnly={isEnded}
                   />
-                  <Button variant="premium" className="px-6" onClick={placeBid} disabled={isEnded}>
+                  <Button variant="premium" className="px-6" onClick={placeBid} disabled={isEnded || submitting}>
                     Place Bid
                   </Button>
                 </div>

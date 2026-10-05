@@ -1,0 +1,14 @@
+**
+!backend/
+!backend/**
+backend/bin/
+backend/obj/
+backend/**/bin/
+backend/**/obj/
+backend/.env
+backend/.env.*
+backend/Properties/
+backend/wwwroot/uploads/
+backend/appsettings.Development.json
+backend/*.sql
+backend/*.sln

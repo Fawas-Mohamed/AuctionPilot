@@ -1,9 +1,12 @@
 // Controllers/AuthController.cs
 using AuctionApi.Models;
+using AuctionApi.Data;
 using AuctionApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using System.ComponentModel.DataAnnotations;
 
 namespace AuctionApi.Controllers
 {
@@ -14,15 +17,17 @@ namespace AuctionApi.Controllers
         private readonly UserManager<ApplicationUser> _um;
         private readonly SignInManager<ApplicationUser> _sm;
         private readonly ITokenService _ts;
+        private readonly ApplicationDbContext _db;
 
-        public AuthController(UserManager<ApplicationUser> um, SignInManager<ApplicationUser> sm, ITokenService ts)
+        public AuthController(UserManager<ApplicationUser> um, SignInManager<ApplicationUser> sm, ITokenService ts, ApplicationDbContext db)
         {
             _um = um;
             _sm = sm;
             _ts = ts;
+            _db = db;
         }
 
-        [HttpPost("register")]
+        [HttpPost("register"), EnableRateLimiting("auth")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
             var user = new ApplicationUser
@@ -32,12 +37,15 @@ namespace AuctionApi.Controllers
                 DisplayName = dto.DisplayName
             };
 
+            await using var transaction = await _db.Database.BeginTransactionAsync();
             var result = await _um.CreateAsync(user, dto.Password);
             if (!result.Succeeded) return BadRequest(result.Errors);
 
             // default role
-            await _um.AddToRoleAsync(user, "User");
+            var roleResult = await _um.AddToRoleAsync(user, "User");
+            if (!roleResult.Succeeded) return StatusCode(503, new { message = "Registration could not be completed." });
 
+            await transaction.CommitAsync();
             var roles = await _um.GetRolesAsync(user);
             var token = _ts.CreateToken(user, roles);
 
@@ -54,7 +62,7 @@ namespace AuctionApi.Controllers
             });
         }
 
-        [HttpPost("login")]
+        [HttpPost("login"), EnableRateLimiting("auth")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
             var user = await _um.FindByEmailAsync(dto.Email);
@@ -64,7 +72,7 @@ namespace AuctionApi.Controllers
                 return Unauthorized("Account is blocked.");
 
 
-            var result = await _sm.CheckPasswordSignInAsync(user, dto.Password, false);
+            var result = await _sm.CheckPasswordSignInAsync(user, dto.Password, true);
             if (!result.Succeeded) return Unauthorized("Invalid credentials");
 
             var roles = await _um.GetRolesAsync(user);
@@ -102,6 +110,6 @@ namespace AuctionApi.Controllers
         }
     }
 
-    public record RegisterDto(string Email, string Password, string DisplayName);
-    public record LoginDto(string Email, string Password);
+    public record RegisterDto([Required, EmailAddress] string Email, [Required] string Password, [Required, StringLength(100)] string DisplayName);
+    public record LoginDto([Required, EmailAddress] string Email, [Required] string Password);
 }

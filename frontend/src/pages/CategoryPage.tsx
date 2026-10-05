@@ -1,3 +1,6 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { createAuctionConnection } from "@/lib/signalr";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { HubConnectionBuilder, HubConnection } from "@microsoft/signalr";
@@ -36,8 +39,8 @@ const CategoryPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [connection, setConnection] = useState<HubConnection | null>(null);
 
-  const apiBase = (import.meta.env.VITE_API_URL ?? "https://localhost:62628").replace(/\/$/, "");
-  const signalRUrl =import.meta.env.VITE_SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
+  const apiBase = BACKEND_ORIGIN;
+  const signalRUrl =SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
 
   // 🧭 Resolve category (by ID or slug)
   const resolvedCategory = useMemo(() => {
@@ -74,6 +77,8 @@ const CategoryPage: React.FC = () => {
   };
 
   // 📦 Initial load
+  useServerRefresh(async () => { await fetchAuctionsForCategory(); });
+
   useEffect(() => {
     if (resolvedCategory) void fetchAuctionsForCategory();
   }, [resolvedCategory]);
@@ -83,10 +88,7 @@ const CategoryPage: React.FC = () => {
     if (!resolvedCategory) return;
 
     const token = localStorage.getItem("token") ?? "";
-    const conn = new HubConnectionBuilder()
-      .withUrl(signalRUrl, { accessTokenFactory: () => token })
-      .withAutomaticReconnect()
-      .build();
+    const conn = createAuctionConnection();
 
     setConnection(conn);
 
@@ -94,7 +96,6 @@ const CategoryPage: React.FC = () => {
       try {
         await conn.start();
         if (resolvedCategory && typeof resolvedCategory.id === "number") {
-          conn.invoke("JoinCategoryGroup", `category-${resolvedCategory.id}`).catch(() => {});
         }
         console.debug("✅ CategoryPage SignalR connected");
       } catch (e) {
@@ -190,7 +191,7 @@ const CategoryPage: React.FC = () => {
             <Card key={a.id} className="group auction-gradient-card hover:auction-shadow-elegant auction-transition cursor-pointer overflow-hidden">
               <div className="relative">
                 {imageUrl ? (
-                  <img src={a.imageUrl.startsWith("http") ? a.imageUrl : `https://localhost:62628${a.imageUrl}`} alt={a.title} className="w-full h-64 object-cover group-hover:scale-105 auction-transition" />
+                  <img src={a.imageUrl.startsWith("http") ? a.imageUrl : `${BACKEND_ORIGIN}${a.imageUrl}`} alt={a.title} className="w-full h-64 object-cover group-hover:scale-105 auction-transition" />
                 ) : (
                   <div className="w-full h-64 flex items-center justify-center bg-slate-100 text-muted-foreground">No image</div>
                 )}

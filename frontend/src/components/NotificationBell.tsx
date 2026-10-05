@@ -1,53 +1,37 @@
 import React, { useEffect, useState } from "react";
 import api from "@/lib/api";
-import { startHub, getConnection } from "@/lib/signalr";
+import { startHub, subscribeHub } from "@/lib/signalr";
+import { useServerRefresh } from "@/hooks/useServerRefresh";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-export default function NotificationBell({ getToken, onToggle, onClose ,open}) {
-  const [notifs, setNotifs] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  
-
+type NotificationRow = { id: number; title: string; message?: string; isRead: boolean; auctionId?: number };
+type Props = { getToken?: () => string | null; onToggle: () => void; onClose?: () => void; open: boolean };
+export default function NotificationBell({ onToggle, open }: Props) {
+  const [notifs, setNotifs] = useState<NotificationRow[]>([]);
+  const token = localStorage.getItem("token");
+  const refresh = async () => {
+    if (!localStorage.getItem("token")) return;
+    const response = await api.get("/notifications");
+    setNotifs(response.data);
+  };
+  useServerRefresh(refresh);
   useEffect(() => {
     let mounted = true;
-    async function init() {
-      try {
-        const res = await api.get("/notifications");
-        if (!mounted) return;
-        setNotifs(res.data);
-        setUnreadCount(res.data.filter(n => !n.isRead).length);
-      } catch (err) {
-        console.error("Failed to load notifications", err);
+    if (!token) { setNotifs([]); return; }
+    const unsubscribe = subscribeHub({
+      NotificationCreated: (payload: NotificationRow) => {
+        if (mounted) setNotifs(previous => [payload, ...previous.filter(n => n.id !== payload.id)]);
       }
-
-      // start hub and listen for notifications
-      await startHub(getToken, {
-        NotificationCreated: (payload) => {
-          // payload shape matches NotificationService (Id, Title, Message, IsRead, CreatedAt, AuctionId)
-          setNotifs(prev => [payload, ...prev]);
-          setUnreadCount(c => c + 1);
-          // optional: show a toast
-        },
-        AuctionClosed: (payload) => {
-          // optionally update auctions list (handled elsewhere)
-          // console.log("auction closed", payload);
-        }
-      });
-    }
-    init();
-    return () => { mounted = false; /* optionally stopHub() if you want */ };
-  }, [getToken]);
-
-  const markAsRead = async (id) => {
+    });
+    void api.get("/notifications").then(response => { if (mounted) setNotifs(response.data); }).catch(() => {});
+    void startHub().catch(() => {});
+    return () => { mounted = false; unsubscribe(); };
+  }, [token]);
+  const markAsRead = async (id: number) => {
     try {
-      await api.post(`/notifications/${id}/read`);
-      setNotifs(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1)); 
-    } catch (err) {
-      console.error("Mark as read failed", err);
-    }
+      await api.post("/notifications/" + id + "/read");
+      setNotifs(previous => previous.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch { }
   };
 
   return (

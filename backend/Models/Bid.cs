@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -21,7 +21,7 @@ namespace AuctionApi.Models
         [ForeignKey(nameof(BidderId))]
         public ApplicationUser Bidder { get; set; } = null!;
 
-        [Column(TypeName = "decimal(18,2)")]
+        public Guid RequestId { get; set; }
         public decimal Amount { get; set; }
 
         public DateTime Time { get; set; } = DateTime.UtcNow;

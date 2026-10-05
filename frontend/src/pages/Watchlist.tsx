@@ -1,3 +1,6 @@
+import { useServerRefresh } from "@/hooks/useServerRefresh";
+import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { createAuctionConnection } from "@/lib/signalr";
 // src/pages/Watchlist.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Heart, Clock, Eye, Trash2, Plus } from "lucide-react";
@@ -32,8 +35,8 @@ const buildImageUrl = (img?: string | null) => {
   if (!img) return undefined;
   if (/^https?:\/\//i.test(img)) return img; // absolute
   if (/^\/\//.test(img)) return `${window.location.protocol}${img}`; // protocol-relative
-  const apiBaseRaw = (import.meta.env as any).VITE_API_URL ?? "";
-  const apiBase = apiBaseRaw.replace(/\/api\/?$/, "").replace(/\/$/, "");
+  const apiBaseRaw = API_URL ?? "";
+  const apiBase = BACKEND_ORIGIN;
   if (img.startsWith("/")) {
     const base = apiBase || window.location.origin;
     return `${base}${img}`;
@@ -69,20 +72,19 @@ const Watchlist: React.FC = () => {
     }
   };
 
+  useServerRefresh(async () => { await fetchWatchlist(); });
+
   useEffect(() => {
     void fetchWatchlist();
 
     // Setup SignalR connection
     const token = localStorage.getItem("token") ?? undefined;
-    const envSignalR = (import.meta.env as any).VITE_SIGNALR_URL as string | undefined;
-    const apiUrl = (import.meta.env as any).VITE_API_URL as string | undefined;
+    const envSignalR = SIGNALR_URL as string | undefined;
+    const apiUrl = API_URL as string | undefined;
     const fallback = apiUrl ? `${apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "")}/hubs/auction` : `${window.location.origin}/hubs/auction`;
     const hubUrl = envSignalR ?? fallback;
 
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl(hubUrl, { accessTokenFactory: () => (token ? token : undefined) })
-      .withAutomaticReconnect()
-      .build();
+    const connection = createAuctionConnection();
 
     hubRef.current = connection;
 

@@ -1,42 +1,25 @@
-// src/App.tsx
 import React, { useEffect } from "react";
 import { Outlet } from "react-router-dom";
-import { startHub } from "@/lib/signalr";
+import { startHub, stopHub } from "@/lib/signalr";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import NotificationBell from "@/components/NotificationBell";
-
+import { useAuth } from "@/contexts/AuthContext";
 const App: React.FC = () => {
-  const token = localStorage.getItem("token");
-
-  // 🔔 Start SignalR connection when user is logged in
-  useEffect(() => {
-    if (!token) return;
-
-    startHub(() => token, {
-      NotificationCreated: (payload: any) => {
-        console.log("🔔 Notification received:", payload);
-      },
-      AuctionClosed: (payload: any) => {
-        console.log("🏁 Auction closed:", payload);
-      },
-    });
-  }, [token]);
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      {/* ✅ Header section with Notification Bell */}
-      <Header/>
-
-      {/* ✅ Main content */}
-      <main className="flex-1">
-        <Outlet />
-      </main>
-
-      {/* ✅ Footer section */}
-      <Footer />
-    </div>
-  );
+    const { user, loading } = useAuth();
+    useEffect(() => {
+        if (loading) return;
+        if (user) void startHub().catch(() => {});
+        else void stopHub();
+    }, [user?.id, loading]);
+    return (
+        <div className="min-h-screen flex flex-col">
+            <Header />
+            <div className="border-b border-border bg-muted/30 px-4 py-2 text-center text-sm text-muted-foreground" role="note">
+                Portfolio demo · Synthetic auctions · No payments, shipping or settlement. First load may take about a minute.
+            </div>
+            <main className="flex-1"><Outlet /></main>
+            <Footer />
+        </div>
+    );
 };
-
 export default App;

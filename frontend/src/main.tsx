@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import App from "./App";
+import AdminRoute from "@/components/AdminRoute";
 
 // Pages (ensure these files exist under src/pages)
 import Index from "@/pages/Index";
@@ -85,9 +86,9 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="auctionpage" element={<AuctionsPage />} />
                 <Route path="hello" element={<CreateConsignment />} />
                 <Route path="watchlist" element={<Watchlist />} />
-                <Route path="auctionmanage" element={<AdminAuctions />} />
-                 <Route path="/admin"element={<AdminReports/>}/>
-                <Route path="usermanage"element={<AdminUsers/>}/>
+                <Route path="auctionmanage" element={<AdminRoute><AdminAuctions /></AdminRoute>} />
+                 <Route path="/admin"element={<AdminRoute><AdminReports /></AdminRoute>}/>
+                <Route path="usermanage"element={<AdminRoute><AdminUsers /></AdminRoute>}/>
                 <Route path="/tt" element={<AuctionsList/>}/>
                 <Route path="/tq" element={<CreateAuctionButton/>}/>
                 

@@ -1,9 +1,5 @@
-using Microsoft.AspNetCore.Http;
-
-namespace AuctionApi.Models
+namespace AuctionApi.Dtos;
+public class ImageUploadDto
 {
-    public class ImageUploadDto
-    {
-        public IFormFile File { get; set; }
-    }
+    public IFormFile? File { get; set; }
 }
