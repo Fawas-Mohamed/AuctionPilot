@@ -43,3 +43,9 @@ After Render reports successful remote Docker build/startup, run from PowerShell
 After the preview's exact origin is configured in Render CORS, also supply -FrontendOrigin https://ACTUAL-PREVIEW.vercel.app. This script performs one bounded liveness/readiness/state/CORS check; it does not keep the service awake.
 
 For the persisted closure regression, also set AUCTIONPILOT_CLOSED_AUCTION_ID to an existing synthetic auction that is confirmed closed in the demo database. The browser checks the real API flag and verifies that a direct load disables bidding without waiting for a realtime event. This check rejects mock mode; the fixture must exist and be closed rather than silently skipping the regression.
+
+## My Auctions image regression
+
+Run `node tests/browser-my-auctions.cjs` with the same preview/backend variables above. With `AUCTIONPILOT_BROWSER_MOCK_API=1`, the localhost production bundle is checked with null, omitted and empty image URLs, plus HTTPS, relative paths and filenames. The check must render the auction cards without uncaught JavaScript errors.
+
+For a live Vercel preview, unset mock mode and explicitly set `AUCTIONPILOT_CREATE_SYNTHETIC_FIXTURE=1`. This registers one synthetic normal user through the browser, creates one auction without an image through the actual form, then verifies My Auctions and a direct reload against its persisted null image URL. Live writes are restricted to `https://auctionpilot-demo-api.onrender.com`; credentials remain in memory. The bounded auction closes naturally; the check retains its synthetic history. Deployment protection may require a temporary provider automation grant restricted to the preview origin.
