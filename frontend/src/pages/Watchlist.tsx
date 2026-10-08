@@ -132,7 +132,7 @@ const Watchlist: React.FC = () => {
   const totalValue = watchedItems.reduce((sum, item) => sum + (item.auction?.currentPrice ?? 0), 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+    <div className="min-h-screen min-w-0 [overflow-wrap:anywhere] bg-gradient-to-br from-background via-background to-muted/30">
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Header */}
@@ -180,7 +180,7 @@ const Watchlist: React.FC = () => {
                   <Card key={item.id} className="auction-shadow-elegant hover:scale-[1.02] auction-transition">
                     <CardContent className="p-6">
                       <div className="flex flex-col lg:flex-row gap-6">
-                        <div className="w-full lg:w-48 h-32 lg:h-auto">
+                        <div className="w-full lg:w-48 lg:shrink-0 aspect-[4/3] lg:aspect-auto">
                           <img
                             src={imgSrc}
                             alt={item.auction?.title ?? "Auction image"}
@@ -189,7 +189,7 @@ const Watchlist: React.FC = () => {
                           />
                         </div>
 
-                        <div className="flex-1 space-y-4">
+                        <div className="min-w-0 flex-1 space-y-4">
                           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                             <div>
                               <h3 className="text-xl font-bold text-auction-navy mb-2">{item.auction?.title}</h3>
