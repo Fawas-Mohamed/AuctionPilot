@@ -49,17 +49,19 @@ export const AuctionCard = ({ item }: AuctionCardProps) => {
   };
 
   return (
-    <Card className="group auction-gradient-card hover:auction-shadow-elegant auction-transition cursor-pointer overflow-hidden">
-      <div className="relative">
+    <Card className="group auction-gradient-card hover:auction-shadow-elegant auction-transition cursor-pointer overflow-hidden min-w-0">
+      <div className="relative overflow-hidden">
         <img
-          src={item.image}
+          src={item.image || "/placeholder.svg"}
           alt={item.title}
           className="w-full h-64 object-cover group-hover:scale-105 auction-transition"
         />
         <Button
           variant="ghost"
           size="icon"
-          className={`absolute top-3 right-3 ${
+          aria-label={`Save ${item.title}`}
+          aria-pressed={isFavorited}
+          className={`absolute top-3 right-3 h-11 w-11 ${
             isFavorited ? "text-red-500" : "text-white"
           } bg-black/20 hover:bg-black/40`}
           onClick={(e) => {
@@ -74,42 +76,42 @@ export const AuctionCard = ({ item }: AuctionCardProps) => {
             LIVE
           </Badge>
         )}
-        <Badge className="absolute bottom-3 left-3 bg-auction-navy text-white">
+        <Badge className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] break-words [overflow-wrap:anywhere] bg-auction-navy text-white">
           {item.category}
         </Badge>
       </div>
       
-      <CardContent className="p-6">
+      <CardContent className="p-4 sm:p-6">
         <div className="space-y-4">
           <div>
-            <h3 className="text-lg font-semibold text-auction-navy group-hover:text-auction-gold auction-transition line-clamp-1">
+            <h3 className="text-lg font-semibold text-auction-navy group-hover:text-auction-gold auction-transition break-words [overflow-wrap:anywhere] sm:line-clamp-2">
               {item.title}
             </h3>
           </div>
           
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1">
               <span className="text-sm text-muted-foreground">Current Bid</span>
-              <span className="text-xl font-bold text-auction-gold">
+              <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-xl font-bold text-auction-gold">
                 {formatPrice(item.currentBid)}
               </span>
             </div>
-            <div className="flex justify-between text-sm text-muted-foreground">
+            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
               <span>Starting: {formatPrice(item.startingBid)}</span>
-              <div className="flex items-center space-x-1">
+              <div className="flex shrink-0 items-center space-x-1">
                 <Users className="h-4 w-4" />
                 <span>{item.bidCount} bids</span>
               </div>
             </div>
           </div>
           
-          <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
             <div className="flex items-center space-x-1 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span>{formatTimeRemaining(item.endTime)}</span>
             </div>
-            <Link to={`/auction/${item.id}`}>
-              <Button variant="bid" size="sm">
+            <Link to={`/auctions/${item.id}`}>
+              <Button variant="bid" size="sm" className="min-h-11">
                 Place Bid
               </Button>
             </Link>

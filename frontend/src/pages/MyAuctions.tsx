@@ -137,7 +137,7 @@ useEffect(() => { void loadMyBids(); }, []);
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+    <div className="min-h-screen min-w-0 [overflow-wrap:anywhere] bg-gradient-to-br from-background via-background to-muted/30">
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -154,7 +154,7 @@ useEffect(() => { void loadMyBids(); }, []);
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card className="auction-shadow-elegant">
               <CardContent className="p-6">
-                <div className="flex items-center gap-4">
+                <div className="flex min-w-0 items-center gap-4 [&>svg]:shrink-0 [&>div]:min-w-0">
                   <BarChart className="w-8 h-8 text-auction-premium" />
                   <div>
                     <div className="text-2xl font-bold text-auction-navy">{auctions.length}</div>
@@ -166,7 +166,7 @@ useEffect(() => { void loadMyBids(); }, []);
 
             <Card className="auction-shadow-elegant">
               <CardContent className="p-6">
-                <div className="flex items-center gap-4">
+                <div className="flex min-w-0 items-center gap-4 [&>svg]:shrink-0 [&>div]:min-w-0">
                   <Eye className="w-8 h-8 text-auction-premium" />
                   <div>
                     <div className="text-2xl font-bold text-auction-navy">{auctions.reduce((s, a) => s + (a.bidCount ?? 0), 0)}</div>
@@ -178,7 +178,7 @@ useEffect(() => { void loadMyBids(); }, []);
 
             <Card className="auction-shadow-elegant">
               <CardContent className="p-6">
-                <div className="flex items-center gap-4">
+                <div className="flex min-w-0 items-center gap-4 [&>svg]:shrink-0 [&>div]:min-w-0">
                   <Users className="w-8 h-8 text-auction-premium" />
                   <div>
                     <div className="text-2xl font-bold text-auction-navy">{/* placeholder */}</div>
@@ -190,7 +190,7 @@ useEffect(() => { void loadMyBids(); }, []);
 
             <Card className="auction-shadow-elegant">
               <CardContent className="p-6">
-                <div className="flex items-center gap-4">
+                <div className="flex min-w-0 items-center gap-4 [&>svg]:shrink-0 [&>div]:min-w-0">
                   <Banknote className="w-8 h-8 text-auction-premium" />
                   <div>
                     <div className="text-2xl font-bold text-auction-navy">{auctions.reduce((s, a) => s + (a.currentPrice ?? 0), 0).toLocaleString()}</div>
@@ -256,7 +256,7 @@ useEffect(() => { void loadMyBids(); }, []);
               </div>
 
               {/* Right */}
-              <div className="flex items-center gap-4">
+              <div className="flex min-w-0 items-center gap-4 [&>svg]:shrink-0 [&>div]:min-w-0">
                 <span className="font-semibold text-sm">
                   {bid.amount.toLocaleString()}
                 </span>
@@ -286,7 +286,7 @@ useEffect(() => { void loadMyBids(); }, []);
                   <Card key={auction.id} className="auction-shadow-elegant hover:scale-[1.02] auction-transition">
                     <CardContent className="p-6">
                       <div className="flex flex-col lg:flex-row gap-6">
-                        <div className="w-full lg:w-48 aspect-[4/3] overflow-hidden rounded-lg bg-muted">
+                        <div className="w-full lg:w-48 lg:shrink-0 aspect-[4/3] overflow-hidden rounded-lg bg-muted">
                           {auction.imageUrl ? (
                             <img
                               src={imageUrl(auction.imageUrl)}
@@ -300,11 +300,11 @@ useEffect(() => { void loadMyBids(); }, []);
                           )}
                         </div>
 
-                        <div className="flex-1 space-y-4">
+                        <div className="min-w-0 flex-1 space-y-4">
                           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                             <div>
                               <h3 className="text-xl font-bold text-auction-navy mb-2">{auction.title}</h3>
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Badge className={getStatusColor(auction.status)}>
                                   {auction.status}
                                 </Badge>
@@ -331,7 +331,7 @@ useEffect(() => { void loadMyBids(); }, []);
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
                               <div className="text-sm text-muted-foreground">Start Price</div>
                               <div className="text-xl font-bold text-auction-navy">${(auction.startPrice ?? 0).toLocaleString()}</div>
