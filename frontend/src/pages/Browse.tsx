@@ -1,10 +1,9 @@
 import { useServerRefresh } from "@/hooks/useServerRefresh";
-import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
+import { SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
 import { createAuctionConnection } from "@/lib/signalr";
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { HubConnectionBuilder, HubConnection } from "@microsoft/signalr";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useCallback, useEffect, useState } from "react";
+import { HubConnection } from "@microsoft/signalr";
+import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +35,9 @@ interface Auction {
 
 const AuctionsPage: React.FC = () => {
   const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState(false);
   const [connection, setConnection] = useState<HubConnection | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | "all">("all");
@@ -44,41 +46,38 @@ const AuctionsPage: React.FC = () => {
     "ending-soon" | "newest" | "price-low" | "price-high" | "most-bids"
   >("ending-soon");
 
-  const navigate = useNavigate();
   const apiBase = BACKEND_ORIGIN;
   const signalRUrl = SIGNALR_URL ?? `${apiBase.replace(/\/api$|\/$/, "")}/hubs/auction`;
 
-  // helper: safe image normalization
-  const normalizeImage = (imageUrl: string | null | undefined) => {
-    if (!imageUrl) return null;
-    if (imageUrl.startsWith("http")) return imageUrl;
-    return imageUrl.startsWith("http") ? imageUrl : BACKEND_ORIGIN + imageUrl;
-  };
-
-  // fetch auctions + categories
-  useServerRefresh(async () => { await fetchAuctions(); });
-
-  useEffect(() => {
-    void fetchAuctions();
-    void fetchCategories();
-  }, []);
-
-  const fetchAuctions = async () => {
+  const fetchAuctions = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await api.get("/auctions");
       setAuctions(res.data ?? []);
     } catch (err) {
       console.error("Failed to load auctions", err);
+      setError("Unable to load auctions. Please try again.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
+
+  useServerRefresh(fetchAuctions);
+  useEffect(() => {
+    void fetchAuctions();
+    void fetchCategories();
+  }, [fetchAuctions]);
 
   const fetchCategories = async () => {
+    setCategoryError(false);
     try {
       const res = await api.get("/categories");
       setCategories(res.data ?? []);
     } catch (err) {
       console.warn("Failed to load categories", err);
       setCategories([]);
+      setCategoryError(true);
     }
   };
 
@@ -97,7 +96,6 @@ const formatPrice = (p?: number) =>
 
   // Setup SignalR connection
   useEffect(() => {
-    const tokenFactory = () => localStorage.getItem("token") ?? "";
     const newConnection = createAuctionConnection();
 
     setConnection(newConnection);
@@ -119,7 +117,7 @@ const formatPrice = (p?: number) =>
           setAuctions((prev) => [auctionObj, ...prev]);
         });
 
-        connection.on("BidPlaced", (payload: any) => {
+        connection.on("BidPlaced", (payload: { AuctionId?: number; auctionId?: number; id?: number; CurrentPrice?: number; currentPrice?: number; amount?: number; BidCount?: number; bidCount?: number }) => {
           const auctionId = payload.AuctionId ?? payload.auctionId ?? payload.id;
           const newPrice = payload.CurrentPrice ?? payload.currentPrice ?? payload.amount;
           const bidCount = payload.BidCount ?? payload.bidCount;
@@ -187,21 +185,22 @@ const formatPrice = (p?: number) =>
   return (
     <div>
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-auction-navy to-auction-navy-light text-white py-16">
+      <section className="bg-gradient-to-r from-auction-navy to-auction-navy-light text-white py-10 sm:py-16">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">Browse Auctions</h1>
-            <p className="text-xl text-gray-200 mb-8">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">Browse Auctions</h1>
+            <p className="text-base sm:text-xl text-gray-200 mb-8">
               Discover exceptional pieces from our curated collection of fine art, luxury goods, and rare collectibles
             </p>
             <div className="relative max-w-lg mx-auto">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <Input
-                type="text"
+                type="search"
+                aria-label="Search auctions"
                 placeholder="Search auctions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-3 bg-white text-black"
+                className="h-12 pl-10 pr-4 py-3 bg-white text-black text-base"
               />
             </div>
           </div>
@@ -211,39 +210,47 @@ const formatPrice = (p?: number) =>
       {/* Filters & Controls */}
       <section className="bg-secondary/20 border-b">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start justify-between">
             {/* Categories */}
-            <div className="flex flex-wrap gap-2">
-              <Badge
+            <fieldset className="flex min-w-0 flex-wrap gap-2">
+              <legend className="sr-only">Filter by category</legend>
+              <button
+                type="button"
+                aria-pressed={selectedCategory === "all"}
                 key="all"
                 onClick={() => setSelectedCategory("all")}
-                className={`cursor-pointer auction-transition ${
+                className={`inline-flex min-h-11 max-w-full items-center rounded-full border px-3 py-2 text-left text-xs font-semibold [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring auction-transition ${
                   selectedCategory === "all"
                     ? "bg-auction-gold text-auction-navy hover:bg-auction-gold-light"
                     : "hover:bg-auction-gold hover:text-auction-navy"
                 }`}>
                 All
-              </Badge>
+              </button>
               {categories.map((c) => (
-                <Badge
+                <button
+                  type="button"
+                  aria-pressed={selectedCategory === c.id}
                   key={c.id}
                   onClick={() => setSelectedCategory(c.id)}
-                  className={`cursor-pointer auction-transition ${
+                  className={`inline-flex min-h-11 max-w-full items-center rounded-full border px-3 py-2 text-left text-xs font-semibold [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring auction-transition ${
                     selectedCategory === c.id
                       ? "bg-auction-gold text-auction-navy hover:bg-auction-gold-light"
                       : "hover:bg-auction-gold hover:text-auction-navy"
                   }`}>
                   {c.name}
-                </Badge>
+                </button>
               ))}
-            </div>
+              {categoryError && <p role="status" className="w-full text-sm text-muted-foreground">Categories are unavailable. Search and sorting are still available. <button type="button" onClick={() => void fetchCategories()} className="min-h-11 underline">Retry categories</button></p>}
+            </fieldset>
 
             {/* Sort */}
-            <div>
+            <div className="w-full lg:w-auto lg:shrink-0">
+              <label htmlFor="auction-sort" className="sr-only">Sort auctions</label>
               <select
+                id="auction-sort"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="border rounded px-3 py-2">
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="min-h-11 w-full border rounded bg-background text-foreground px-3 py-2">
                 <option value="ending-soon">Ending Soon</option>
                 <option value="newest">Newest First</option>
                 <option value="price-low">Price: Low to High</option>
@@ -256,25 +263,33 @@ const formatPrice = (p?: number) =>
       </section>
 
       {/* Auction Grid */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {visibleAuctions.map((auction) => {
+      <section className="container mx-auto px-4 py-6 sm:py-10" aria-label="Auction results" aria-busy={loading}>
+        {loading && <p role="status" className="py-8 text-center text-muted-foreground">Loading auctions...</p>}
+        {!loading && error && (
+          <div role="alert" className="rounded border border-destructive/30 p-6 text-center">
+            <p className="mb-4">{error}</p>
+            <Button variant="outline" className="min-h-11" onClick={() => void fetchAuctions()}>Retry auctions</Button>
+          </div>
+        )}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {!loading && !error && visibleAuctions.map((auction) => {
             const category =
               auction.category ??
               (auction.categoryId ? categoriesMap.get(auction.categoryId) ?? null : null);
             return (
               <Card
                 key={auction.id}
-                className="group auction-gradient-card hover:auction-shadow-elegant auction-transition cursor-pointer overflow-hidden">
-                <div className="relative">
+                className="group auction-gradient-card hover:auction-shadow-elegant auction-transition cursor-pointer overflow-hidden min-w-0">
+                <div className="relative overflow-hidden">
                   <img
-                    src={normalizeImage(auction.imageUrl) ?? ""}
+                    src={imageUrl(auction.imageUrl) ?? "/placeholder.svg"}
                     alt={auction.title}
                     className="w-full h-64 object-cover group-hover:scale-105 auction-transition"/>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-3 right-3 text-white bg-black/20 hover:bg-black/40">
+                    aria-label={`Save ${auction.title}`}
+                    className="absolute top-3 right-3 h-11 w-11 text-white bg-black/20 hover:bg-black/40">
                     <Heart className="h-5 w-5" />
                   </Button>
                   {new Date(auction.endTime) > new Date() && (
@@ -282,39 +297,39 @@ const formatPrice = (p?: number) =>
                       LIVE
                     </Badge>
                   )}
-                  <Badge className="absolute bottom-3 left-3 bg-auction-navy text-white">
+                  <Badge className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] break-words [overflow-wrap:anywhere] bg-auction-navy text-white">
                     {category?.name ?? "Uncategorized"}
                   </Badge>
                 </div>
 
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-lg font-semibold text-auction-navy group-hover:text-auction-gold auction-transition line-clamp-1">
+                      <h3 className="text-lg font-semibold text-auction-navy group-hover:text-auction-gold auction-transition break-words [overflow-wrap:anywhere] sm:line-clamp-2">
                         {auction.title}
                       </h3>
-                      <p className="text-muted-foreground text-sm mt-1 line-clamp-2">
+                      <p className="text-muted-foreground text-sm mt-1 break-words [overflow-wrap:anywhere] line-clamp-2">
                         {auction.description}
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center">
+                      <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1">
                         <span className="text-sm text-muted-foreground">Current Bid</span>
-                        <span className="text-xl font-bold text-auction-gold">
+                        <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-xl font-bold text-auction-gold">
                           {formatPrice(auction.currentPrice ?? auction.startPrice)}
                         </span>
                       </div>
-                      <div className="flex justify-between text-sm text-muted-foreground">
+                      <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
                         <span>Starting: {formatPrice(auction.startPrice)}</span>
-                        <div className="flex items-center space-x-1">
+                        <div className="flex shrink-0 items-center space-x-1">
                           <Users className="h-4 w-4" />
                           <span>{auction.bidCount} bids</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
                       <div className="flex items-center space-x-1 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
                         <span>{formatTimeRemaining(auction.endTime)}</span>
@@ -323,6 +338,7 @@ const formatPrice = (p?: number) =>
                         <Button
                           variant="bid"
                           size="sm"
+                          className="min-h-11"
                           disabled={new Date(auction.endTime) < new Date()}>
                           Place Bid
                         </Button>
@@ -333,9 +349,10 @@ const formatPrice = (p?: number) =>
               </Card>
             );
           })}
-          {visibleAuctions.length === 0 && (
+          {!loading && !error && visibleAuctions.length === 0 && (
             <div className="col-span-full text-center text-muted-foreground p-8 rounded bg-white shadow-sm">
               No auctions found.
+              {(searchQuery || selectedCategory !== "all") && <Button variant="outline" className="mt-4 min-h-11" onClick={() => { setSearchQuery(""); setSelectedCategory("all"); }}>Clear filters</Button>}
             </div>
           )}
         </div>

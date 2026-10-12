@@ -276,8 +276,8 @@ const formatPrice = (p?: number) =>
         </div>
       </section>
 
-      <div className="p-12 ">
-        <div ref={dropdownRef} className="relative w-56">
+      <div className="px-4 py-6 sm:p-8 lg:p-12">
+        <div ref={dropdownRef} className="relative mb-6 w-56 max-w-full">
       <button
         type="button"
         className="w-full cursor-pointer rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm flex justify-between items-center"
@@ -341,11 +341,11 @@ const formatPrice = (p?: number) =>
             return (
               <Card
                 key={auction.id}
-                className="group auction-gradient-card hover:auction-shadow-elegant auction-transition cursor-pointer overflow-hidden w-[450px] h-74"
+                className="group auction-gradient-card hover:auction-shadow-elegant auction-transition cursor-pointer overflow-hidden min-w-0 w-full"
               >
-                <div className="relative">
+                <div className="relative overflow-hidden">
                 <img
-                    src={normalizeImage(imageUrl) ?? ""}
+                    src={imageUrl ?? "/placeholder.svg"}
                     alt={auction.title}
                     className="w-full h-64 object-cover group-hover:scale-105 auction-transition"/>
                     {/*<img src={imageUrl} alt={auction.title} className="w-full h-64 object-cover group-hover:scale-105 auction-transition" />*/}
@@ -372,27 +372,27 @@ const formatPrice = (p?: number) =>
                   )}
 
                   {/* Category badge */}
-                  <Badge className="absolute bottom-3 left-3 bg-auction-navy text-white">{category?.name ?? "Uncategorized"}</Badge>
+                  <Badge className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] break-words [overflow-wrap:anywhere] bg-auction-navy text-white">{category?.name ?? "Uncategorized"}</Badge>
                 </div>
 
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-lg font-semibold text-auction-navy group-hover:text-auction-gold auction-transition line-clamp-1">
+                      <h3 className="text-lg font-semibold text-auction-navy group-hover:text-auction-gold auction-transition break-words [overflow-wrap:anywhere] sm:line-clamp-2">
                         {auction.title}
                       </h3>
-                      <p className="text-muted-foreground text-sm mt-1 line-clamp-2">{auction.description}</p>
+                      <p className="text-muted-foreground text-sm mt-1 break-words [overflow-wrap:anywhere] line-clamp-2">{auction.description}</p>
                     </div>
 
                     {/* Price & bids */}
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center">
+                      <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1">
                         <span className="text-sm text-muted-foreground">Current Bid</span>
-                        <span className="text-xl font-bold text-auction-gold">{formatPrice(currentPrice)}</span>
+                        <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-xl font-bold text-auction-gold">{formatPrice(currentPrice)}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-muted-foreground">
+                      <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
                         <span>Starting: {formatPrice(auction.startPrice)}</span>
-                        <div className="flex items-center space-x-1">
+                        <div className="flex shrink-0 items-center space-x-1">
                           <Users className="h-4 w-4" />
                           <span>{auction.bidCount} bids</span>
                         </div>
@@ -400,14 +400,14 @@ const formatPrice = (p?: number) =>
                     </div>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
                       <div className="flex items-center space-x-1 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
                         {/* formatTimeRemaining uses the resilient toDate parser */}
                         <span>{formatTimeRemaining(auction.endTime)}</span>
                       </div>
                       <Link to={`/auctions/${auction.id}`}>
-                        <Button variant="bid" size="sm" disabled={isEnded}>
+                        <Button variant="bid" size="sm" className="min-h-11" disabled={isEnded}>
                           Place Bid
                         </Button>
                       </Link>

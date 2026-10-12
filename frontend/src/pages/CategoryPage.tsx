@@ -188,7 +188,7 @@ const CategoryPage: React.FC = () => {
           const currentPrice = a.currentPrice ?? a.startPrice ?? 0;
 
           return (
-            <Card key={a.id} className="group auction-gradient-card hover:auction-shadow-elegant auction-transition cursor-pointer overflow-hidden">
+            <Card key={a.id} className="group auction-gradient-card hover:auction-shadow-elegant auction-transition cursor-pointer overflow-hidden min-w-0">
               <div className="relative">
                 {imageUrl ? (
                   <img src={a.imageUrl.startsWith("http") ? a.imageUrl : `${BACKEND_ORIGIN}${a.imageUrl}`} alt={a.title} className="w-full h-64 object-cover group-hover:scale-105 auction-transition" />
@@ -203,36 +203,36 @@ const CategoryPage: React.FC = () => {
                 </Button>
               </div>
 
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-auction-navy group-hover:text-auction-gold auction-transition line-clamp-1">
+                    <h3 className="text-lg font-semibold text-auction-navy group-hover:text-auction-gold auction-transition break-words [overflow-wrap:anywhere] sm:line-clamp-2">
                       {a.title}
                     </h3>
-                    <p className="text-muted-foreground text-sm mt-1 line-clamp-2">{a.description}</p>
+                    <p className="text-muted-foreground text-sm mt-1 break-words [overflow-wrap:anywhere] line-clamp-2">{a.description}</p>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1">
                       <span className="text-sm text-muted-foreground">Current Bid</span>
-                      <span className="text-xl font-bold text-auction-gold">${currentPrice.toLocaleString()}</span>
+                      <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-xl font-bold text-auction-gold">${currentPrice.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between text-sm text-muted-foreground">
+                    <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
                       <span>Starting: ${Number(a.startPrice ?? 0).toLocaleString()}</span>
-                      <div className="flex items-center space-x-1">
+                      <div className="flex shrink-0 items-center space-x-1">
                         <Users className="h-4 w-4"/>
                         <span>{a.bidCount ?? 0} bids</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
                     <div className="flex items-center space-x-1 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4"/>
                       <TimeRemaining end={a.endTime}/>
                     </div>
                     <Link to={`/auctions/${a.id}`}>
-                      <Button variant="bid" size="sm" disabled={isEnded}>Place Bid</Button>
+                      <Button variant="bid" size="sm" className="min-h-11" disabled={isEnded}>Place Bid</Button>
                     </Link>
                   </div>
                 </div>
