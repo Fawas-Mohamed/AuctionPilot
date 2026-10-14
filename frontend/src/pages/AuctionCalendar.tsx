@@ -153,7 +153,7 @@ const AuctionCalendar = () => {
 
           {/* Controls */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <Button variant="outline" onClick={() => navigateMonth(-1)}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Previous
@@ -167,7 +167,7 @@ const AuctionCalendar = () => {
               </Button>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="w-48">
                   <Filter className="w-4 h-4 mr-2" />
