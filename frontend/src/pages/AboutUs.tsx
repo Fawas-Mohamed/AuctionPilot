@@ -119,7 +119,7 @@ const AboutUs = () => {
                     src={founderImage}
                     alt="Auction house gallery"
                     className="rounded-lg shadow-2xl"/>
-                  <div className="absolute -bottom-6 -right-6 bg-auction-gold p-6 rounded-lg shadow-lg">
+                  <div className="absolute bottom-0 right-0 lg:-bottom-6 lg:-right-6 bg-auction-gold p-6 rounded-lg shadow-lg">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-auction-navy">Est.</div>
                       <div className="text-3xl font-bold text-auction-navy">2025</div>
