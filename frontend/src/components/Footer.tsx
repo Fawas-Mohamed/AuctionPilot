@@ -15,9 +15,9 @@ export const Footer = () => {
 
     
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8">
           {/* Company Info */}
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <Link to="/" className="flex items-center space-x-2">
               <Gavel className="h-8 w-8 text-auction-gold" />
               <span className="text-2xl font-bold">AuctionPilot</span>
@@ -27,14 +27,14 @@ export const Footer = () => {
             </p>
             <div className="flex space-x-4">
               <div className="flex items-center space-x-2 text-sm text-gray-300">
-                <Mail className="h-4 w-4" />
-                <span>AuctionPilot@gmail.com</span>
+                <Mail className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 [overflow-wrap:anywhere]">AuctionPilot@gmail.com</span>
               </div>
             </div>
           </div>
 
           {/* Quick Links */}
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <h3 className="text-lg font-semibold text-auction-gold">Quick Links</h3>
             <div className="space-y-2">
               <Link to="/auctions" className="block text-gray-300 hover:text-auction-gold auction-transition">
@@ -53,7 +53,7 @@ export const Footer = () => {
           </div>
 
           {/* Support */}
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <h3 className="text-lg font-semibold text-auction-gold">Support</h3>
             <div className="space-y-2">
               <Link to="/help" className="block text-gray-300 hover:text-auction-gold auction-transition">
@@ -72,15 +72,15 @@ export const Footer = () => {
           </div>
 
           {/* Contact */}
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <h3 className="text-lg font-semibold text-auction-gold">Contact</h3>
             <div className="space-y-3">
               <div className="flex items-center space-x-2 text-gray-300">
-                <Phone className="h-4 w-4" />
+                <Phone className="h-4 w-4 shrink-0" />
                 <span>0778523520</span>
               </div>
               <div className="flex items-center space-x-2 text-gray-300">
-                <MapPin className="h-4 w-4" />
+                <MapPin className="h-4 w-4 shrink-0" />
                 <span>1,Kandy road<br />Colombo</span>
               </div>
             </div>

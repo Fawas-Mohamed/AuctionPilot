@@ -37,7 +37,7 @@ export default function NotificationBell({ onToggle, open }: Props) {
   return (
     <div className="relative">
       <Button variant="ghost" size="icon" asChild>
-        <button onClick={onToggle}>
+        <button onClick={onToggle} aria-label="Notifications" aria-expanded={open}>
           <Bell className="h-5 w-5 text-gray-700" />
           {notifs.some(n => !n.isRead) && (
           <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
@@ -46,7 +46,7 @@ export default function NotificationBell({ onToggle, open }: Props) {
       </Button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto
+        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-4rem)] max-h-96 overflow-y-auto [overflow-wrap:anywhere]
           rounded-xl bg-white shadow-xl border z-50">
           <div className="px-4 py-3 font-semibold border-b">
           Notifications
