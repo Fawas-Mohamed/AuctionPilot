@@ -379,15 +379,15 @@ const formatTimeRemaining = (endTime?: string | null) => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-w-0 bg-background [overflow-wrap:anywhere]">
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12">
+          <div className="min-w-0 space-y-6">
             <div className="relative">
               {safeImage ? (
-                <img src={safeImage} alt={auction.title} className="w-full h-[600px] object-cover rounded-lg auction-shadow-elegant" />
+                <img src={safeImage} alt={auction.title} className="w-full aspect-[4/3] object-cover lg:aspect-auto lg:h-[600px] rounded-lg auction-shadow-elegant" />
               ) : (
-                <div className="w-full h-[600px] rounded-lg bg-muted/20 flex items-center justify-center">No image</div>
+                <div className="w-full aspect-[4/3] lg:aspect-auto lg:h-[600px] rounded-lg bg-muted/20 flex items-center justify-center">No image</div>
               )}
               {/* Live indicator */}
               {auction.status === "Live" || auction.status === 2 ? (
@@ -396,7 +396,7 @@ const formatTimeRemaining = (endTime?: string | null) => {
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <div>
               <Badge className="mb-3 bg-auction-navy text-white">{categoryName}</Badge>
               <h1 className="text-3xl font-bold text-auction-navy mb-2">{auction.title}</h1>
@@ -404,12 +404,12 @@ const formatTimeRemaining = (endTime?: string | null) => {
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-1">
                 <span className="text-lg text-muted-foreground">Current Bid</span>
-                <span className="text-3xl font-bold text-auction-gold">{formatPrice(currentPrice)}</span>
+                <span className="min-w-0 max-w-full text-2xl sm:text-3xl font-bold text-auction-gold">{formatPrice(currentPrice)}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-muted-foreground">
                 <div>Starting bid: {formatPrice(auction.startPrice)}</div>
                 <div>Estimate: {auction.estimate ?? "—"}</div>
                 <div className="flex items-center space-x-1">
@@ -431,28 +431,29 @@ const formatTimeRemaining = (endTime?: string | null) => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
                   <Input
                     type="number"
                     placeholder={`Minimum: ${formatPrice(nextBidIncrement)}`}
                     value={bidAmount}
                     onChange={(e) => setBidAmount(e.target.value)}
-                    className="flex-1"
+                    className="min-w-0 basis-full sm:basis-0 flex-1 h-11"
+                    aria-label="Bid amount"
                     readOnly={isEnded}
                   />
-                  <Button variant="premium" className="px-6" onClick={placeBid} disabled={isEnded || submitting}>
+                  <Button variant="premium" className="min-h-11 w-full sm:w-auto px-6" onClick={placeBid} disabled={isEnded || submitting}>
                     Place Bid
                   </Button>
                 </div>
 
-                <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => setBidAmount(nextBidIncrement.toString())} disabled={isEnded}>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" className="max-w-full min-h-11 h-auto whitespace-normal [overflow-wrap:anywhere]" onClick={() => setBidAmount(nextBidIncrement.toString())} disabled={isEnded}>
                     {formatPrice(nextBidIncrement)}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => setBidAmount((nextBidIncrement + 500).toString())} disabled={isEnded}>
+                  <Button variant="outline" size="sm" className="max-w-full min-h-11 h-auto whitespace-normal [overflow-wrap:anywhere]" onClick={() => setBidAmount((nextBidIncrement + 500).toString())} disabled={isEnded}>
                     {formatPrice(nextBidIncrement + 500)}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => setBidAmount((nextBidIncrement + 1000).toString())} disabled={isEnded}>
+                  <Button variant="outline" size="sm" className="max-w-full min-h-11 h-auto whitespace-normal [overflow-wrap:anywhere]" onClick={() => setBidAmount((nextBidIncrement + 1000).toString())} disabled={isEnded}>
                     {formatPrice(nextBidIncrement + 1000)}
                   </Button>
                 </div>
@@ -483,22 +484,22 @@ const formatTimeRemaining = (endTime?: string | null) => {
         <div className="mt-12">
   <Tabs defaultValue="details" className="w-full">
     {/* Tabs */}
-    <TabsList className="flex w-full rounded-xl bg-muted p-1">
+    <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl bg-muted p-1">
       <TabsTrigger
         value="details"
-        className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow"
+        className="min-h-11 whitespace-normal break-words rounded-lg data-[state=active]:bg-white data-[state=active]:shadow"
       >
         Details
       </TabsTrigger>
       <TabsTrigger
         value="bidding"
-        className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow"
+        className="min-h-11 whitespace-normal break-words rounded-lg data-[state=active]:bg-white data-[state=active]:shadow"
       >
         Bidding History
       </TabsTrigger>
       <TabsTrigger
         value="condition"
-        className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow"
+        className="min-h-11 whitespace-normal break-words rounded-lg data-[state=active]:bg-white data-[state=active]:shadow"
       >
         Condition Report
       </TabsTrigger>
@@ -525,10 +526,10 @@ const formatTimeRemaining = (endTime?: string | null) => {
                 ].map(([label, value], i) => (
                   <div
                     key={i}
-                    className="flex justify-between border-b pb-2 last:border-0"
+                    className="flex flex-col sm:flex-row gap-1 sm:gap-3 justify-between border-b pb-2 last:border-0"
                   >
                     <span className="text-muted-foreground">{label}</span>
-                    <span className="font-medium text-right">
+                    <span className="min-w-0 font-medium sm:text-right">
                       {value ?? "—"}
                     </span>
                   </div>
