@@ -211,14 +211,14 @@ const Index = () => {
     <div className="min-h-screen bg-background">
      
       {/* Hero Section */}
- <section className="relative min-h-[85vh] flex items-center overflow-hidden">
+ <section className="relative min-h-[85vh] flex items-center py-10 lg:py-0 overflow-hidden">
   {/* Background */}
   <div className="absolute inset-0 bg-gradient-to-br from-[#0b1220] via-[#111827] to-black" />
 
-  <div className="relative z-10 mx-auto max-w-7xl px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+  <div className="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
     
     {/* LEFT — Text */}
-    <div className="text-white space-y-8">
+    <div className="min-w-0 text-white space-y-8">
       <h1 className="text-3xl md:text-6xl font-extrabold leading-tight animate-fade-left">
         Bid Smart  Win Big
         <span className="block bg-gradient-to-r from-auction-gold to-yellow-300 bg-clip-text text-transparent">
@@ -252,7 +252,7 @@ const Index = () => {
           <Button
             size="lg"
             className="
-              px-8 py-6 text-lg font-semibold
+              w-full sm:w-auto px-6 sm:px-8 py-6 text-lg font-semibold
               rounded-full
               bg-auction-gold text-auction-navy
               shadow-xl hover:shadow-2xl
@@ -269,7 +269,7 @@ const Index = () => {
             size="lg"
             variant="outline"
             className="
-              px-8 py-6 text-lg font-semibold
+              w-full sm:w-auto px-6 sm:px-8 py-6 text-lg font-semibold
               rounded-full
               border-white/40 text-white
               backdrop-blur-md bg-white/10
@@ -305,7 +305,7 @@ const Index = () => {
       <section className="py-16 bg-gradient-to-b from-background to-secondary/20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-auction-navy mb-4">Featured Auctions</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-auction-navy mb-4">Featured Auctions</h2>
             <p className="text-xl text-muted-foreground">Exceptional pieces currently accepting bids</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -315,7 +315,7 @@ const Index = () => {
     id: String(a.id),
     title: a.title,
     description: a.description,
-    image: normalizeImage(a.imageUrl ),
+    image: imageUrl(a.imageUrl) ?? "/placeholder.svg",
     currentBid: a.currentPrice,
     startingBid: a.startPrice,
     endTime: a.endTime,
@@ -329,7 +329,7 @@ const Index = () => {
 
           </div>
           <div className="text-center mt-12">
-            <Link to="/auctionpage">
+            <Link to="/auctions">
               <Button variant="gold" size="lg">
                 View All Auctions
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -343,7 +343,7 @@ const Index = () => {
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-auction-navy mb-4">Browse by Category</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-auction-navy mb-4">Browse by Category</h2>
             <p className="text-xl text-muted-foreground">Explore what fascinates you</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
@@ -370,7 +370,7 @@ const Index = () => {
       <section className="py-16 bg-secondary/20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-auction-navy mb-4">Why Choose AuctionHouse</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-auction-navy mb-4">Why Choose AuctionHouse</h2>
             <p className="text-xl text-muted-foreground">Trusted by collectors worldwide</p>
           </div>
           
