@@ -10,5 +10,6 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.30" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.30" />
     <ProjectReference Include="../../backend/AuctionApi.csproj" />
+    <ProjectReference Include="../../tools/AdminPasswordReset/AdminPasswordReset.csproj" />
   </ItemGroup>
 </Project>

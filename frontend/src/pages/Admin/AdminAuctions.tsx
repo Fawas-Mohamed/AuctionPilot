@@ -1,280 +1,300 @@
-import React, { useEffect, useState } from "react";
-import api from "@/lib/api"; // your axios wrapper
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
+import { Link } from "react-router-dom";
+import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-interface Auction {
+type Category = { id: number; name: string };
+type Auction = {
   id: number;
   title: string;
   description?: string;
   startPrice: number;
   currentPrice: number;
-  startTime?: string;
-  endTime?: string;
-  status: string;
+  startTime: string;
+  endTime: string;
+  status?: number | string;
+  isClosed?: boolean;
+  bidCount: number;
   imageUrl?: string | null;
   categoryId?: number | null;
-  categoryName?: string | null;
+  category?: Category | null;
+};
+
+const emptyForm = {
+  title: "", description: "", startPrice: "", startTime: "", endTime: "",
+  imageFile: null as File | string | null, categoryId: ""
+};
+
+function auctionStatus(auction: Auction, now: number) {
+  const status = String(auction.status ?? "").toLowerCase();
+  if (auction.isClosed || status === "3" || status === "closed" || Date.parse(auction.endTime) <= now) return "Closed";
+  if (status === "0" || status === "draft") return "Draft";
+  return Date.parse(auction.startTime) <= now ? "Live" : "Scheduled";
 }
 
-interface Category {
-  id: number;
-  name: string;
+function restriction(auction: Auction, now: number) {
+  if (auctionStatus(auction, now) === "Closed") return "Closed auctions are retained as history.";
+  if (auction.bidCount > 0) return "Auctions with bids cannot be edited or deleted.";
+  if (!(Date.parse(auction.startTime) > now)) return "Only auctions that have not started can be edited or deleted.";
+  return null;
+}
+
+function localTime(value: string) {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (isAxiosError<{ message?: string; errors?: Record<string, string[]>; title?: string }>(error)) {
+    const data = error.response?.data;
+    return data?.message || (data?.errors && Object.values(data.errors).flat().join(" ")) || data?.title || fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
 }
 
 export default function AdminAuctions() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [editingAuction, setEditingAuction] = useState<Auction | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [busy, setBusy] = useState(false);
+  const actionInFlight = useRef(false);
+  const [now, setNow] = useState(Date.now);
 
-  // form: imageFile may be File or existing string url
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    startPrice: 0,
-    startTime: "",
-    endTime: "",
-    imageFile: null as File | string | null,
-    categoryId: "" // string for select; convert on submit
-  });
-
-  // Helper: normalize auctions & merge category names
-  const mergeCategoryNames = (rawAucs: any[], cats: Category[]): Auction[] => {
-    const map = new Map<number, string>();
-    cats.forEach(c => map.set(c.id, c.name));
-    return rawAucs.map((r: any) => {
-      const categoryId = r.categoryId ?? (r.category ? r.category.id : null);
-      const categoryName = r.category?.name ?? (categoryId ? map.get(Number(categoryId)) ?? null : null);
-      const startPrice = Number(r.startPrice ?? 0);
-      const currentPrice = Number(r.currentPrice ?? r.startPrice ?? 0);
-      const status = r.status ?? computeStatus(r.startTime, r.endTime);
-      return {
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        startPrice,
-        currentPrice,
-        startTime: r.startTime,
-        endTime: r.endTime,
-        status,
-        imageUrl: r.imageUrl ?? null,
-        categoryId: categoryId ? Number(categoryId) : null,
-        categoryName
-      } as Auction;
-    });
-  };
-
-  const computeStatus = (start?: string, end?: string) => {
-    if (!start || !end) return "Draft";
-    const now = Date.now();
-    const s = new Date(start).getTime();
-    const e = new Date(end).getTime();
-    if (now < s) return "Upcoming";
-    if (now >= s && now <= e) return "Ongoing";
-    return "Closed";
-  };
-
-  // fetch categories & auctions in parallel and normalize
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
-      const [catRes, aucRes] = await Promise.all([api.get("/categories"), api.get("/admin/auctions")]);
-      const cats: Category[] = Array.isArray(catRes.data) ? catRes.data : (catRes.data?.data ?? []);
-      const rawAucs = aucRes.data ?? [];
-      setCategories(cats);
-      setAuctions(mergeCategoryNames(rawAucs, cats));
-    } catch (err) {
-      console.error("Failed to fetch auctions/categories", err);
-      setCategories([]);
-      setAuctions([]);
+      const [catRes, aucRes] = await Promise.all([
+        api.get<Category[]>("/categories"), api.get<Auction[]>("/admin/auctions")
+      ]);
+      setCategories(catRes.data);
+      setAuctions(aucRes.data);
+      setNow(Date.now());
+    } catch (error) {
+      setLoadError(errorMessage(error, "Unable to load auctions. Please try again."));
+    } finally {
+      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    void fetchAll();
   }, []);
 
-  // realtime-ish: update statuses every 10s
+  useEffect(() => { void fetchAll(); }, [fetchAll]);
   useEffect(() => {
-    const iv = setInterval(() => {
-      setAuctions(prev => prev.map(a => ({ ...a, status: computeStatus(a.startTime, a.endTime) })));
-    }, 10000);
-    return () => clearInterval(iv);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  // form handlers
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    if (name === "startPrice") {
-      setForm(f => ({ ...f, [name]: Number(value) }));
-    } else {
-      setForm(f => ({ ...f, [name]: value }));
-    }
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setForm(previous => ({ ...previous, [event.target.name]: event.target.value }));
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setForm(f => ({ ...f, imageFile: e.target.files![0] }));
-    }
-  };
-
-  // start edit: populate form
-  const startEdit = (a: Auction) => {
-    setEditingAuction(a);
+  const startEdit = (auction: Auction) => {
+    const reason = restriction(auction, Date.now());
+    if (reason) { setActionError(reason); return; }
+    setEditingAuction(auction);
     setForm({
-      title: a.title ?? "",
-      description: a.description ?? "",
-      startPrice: a.startPrice ?? 0,
-      startTime: a.startTime ? new Date(new Date(a.startTime).getTime() - new Date(a.startTime).getTimezoneOffset() * 60000).toISOString().slice(0,16) : "",
-      endTime: a.endTime ? new Date(new Date(a.endTime).getTime() - new Date(a.endTime).getTimezoneOffset() * 60000).toISOString().slice(0,16) : "",
-      imageFile: a.imageUrl ?? null, // keep existing url string if present
-      categoryId: a.categoryId ? String(a.categoryId) : ""
+      title: auction.title, description: auction.description ?? "", startPrice: String(auction.startPrice),
+      startTime: localTime(auction.startTime), endTime: localTime(auction.endTime),
+      imageFile: auction.imageUrl ?? null, categoryId: auction.categoryId ? String(auction.categoryId) : ""
     });
+    setFormError(null);
     setOpen(true);
   };
 
-  // Save create/update
-  const handleSave = async () => {
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (actionInFlight.current) return;
+    setFormError(null);
+    const startTime = Date.parse(form.startTime);
+    const endTime = Date.parse(form.endTime);
+    if (!form.title.trim() || !Number.isFinite(Number(form.startPrice)) || Number(form.startPrice) <= 0) {
+      setFormError("Enter a title and a positive start price."); return;
+    }
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime || endTime <= Date.now()) {
+      setFormError("The end time must be after the start time and in the future."); return;
+    }
+    if (editingAuction) {
+      const reason = restriction(editingAuction, Date.now());
+      if (reason) { setFormError(reason); return; }
+    }
+    actionInFlight.current = true;
+    setBusy(true);
+    setActionError(null);
+    setNotice(null);
     try {
       let imageUrl = typeof form.imageFile === "string" ? form.imageFile : null;
       if (form.imageFile instanceof File) {
         const upload = new FormData();
         upload.append("file", form.imageFile);
-        const response = await api.post("/uploads", upload);
+        const response = await api.post<{ imageUrl: string }>("/uploads", upload);
         imageUrl = response.data.imageUrl;
-        if (!imageUrl) throw new Error("Image upload failed.");
+        if (!imageUrl) throw new Error("Image upload failed. Please try again.");
+        // Retain a successful upload if saving the auction needs to be retried.
+        setForm(previous => ({ ...previous, imageFile: imageUrl }));
       }
       const payload = {
-        title: form.title, description: form.description, startPrice: Number(form.startPrice),
-        startTime: new Date(form.startTime).toISOString(), endTime: new Date(form.endTime).toISOString(),
+        title: form.title.trim(), description: form.description, startPrice: Number(form.startPrice),
+        startTime: new Date(startTime).toISOString(), endTime: new Date(endTime).toISOString(),
         imageUrl, categoryId: form.categoryId ? Number(form.categoryId) : null
       };
-      if (editingAuction) await api.put("/admin/auctions/" + editingAuction.id, payload);
+      if (editingAuction) await api.put(`/admin/auctions/${editingAuction.id}`, payload);
       else await api.post("/admin/auctions", payload);
       setOpen(false);
+      setNotice(editingAuction ? "Auction updated." : "Auction created.");
       setEditingAuction(null);
       await fetchAll();
-    } catch (err) {
-      console.error("Save failed", err);
-      alert("Failed to save auction — see console for details.");
+    } catch (error) {
+      setFormError(errorMessage(error, "Unable to save the auction. Please try again."));
+      if (isAxiosError(error) && error.response?.status === 409) await fetchAll();
+    } finally {
+      actionInFlight.current = false;
+      setBusy(false);
     }
   };
 
-  // Delete
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this auction?")) return;
+  const handleAction = async (auction: Auction, action: "delete" | "close") => {
+    if (actionInFlight.current) return;
+    if (action === "delete") {
+      const reason = restriction(auction, Date.now());
+      if (reason) { setActionError(reason); return; }
+    }
+    const prompt = action === "delete" ? `Delete "${auction.title}"? This cannot be undone.`
+      : `Close "${auction.title}" now? Bidding will end and the result will be final.`;
+    if (!window.confirm(prompt)) return;
+    actionInFlight.current = true;
+    setBusy(true);
+    setActionError(null);
+    setNotice(null);
     try {
-      await api.delete(`/admin/auctions/${id}`);
+      if (action === "delete") await api.delete(`/admin/auctions/${auction.id}`);
+      else await api.patch(`/admin/auctions/${auction.id}/close`);
+      setNotice(action === "delete" ? "Auction deleted." : "Auction closed. Its history has been retained.");
       await fetchAll();
-    } catch (err) {
-      console.error("Delete failed", err);
-      alert("Delete failed.");
+    } catch (error) {
+      setActionError(errorMessage(error, `Unable to ${action} the auction. Please try again.`));
+      if (isAxiosError(error) && [404, 409].includes(error.response?.status ?? 0)) await fetchAll();
+    } finally {
+      actionInFlight.current = false;
+      setBusy(false);
     }
   };
 
-  // Close (use admin endpoint)
-  const handleClose = async (id: number) => {
-    try {
-      await api.patch(`/admin/auctions/${id}/close`);
-      await fetchAll();
-    } catch (err) {
-      console.error("Close failed", err);
-      alert("Close failed.");
-    }
-  };
-
-  // prepare new form
   const startCreate = () => {
     setEditingAuction(null);
-    setForm({
-      title: "",
-      description: "",
-      startPrice: 0,
-      startTime: "",
-      endTime: "",
-      imageFile: null,
-      categoryId: ""
-    });
+    setForm(emptyForm);
+    setFormError(null);
     setOpen(true);
   };
 
+  const categoryName = (auction: Auction) => auction.category?.name
+    ?? categories.find(category => category.id === auction.categoryId)?.name ?? "Uncategorized";
+
+  const actions = (auction: Auction) => {
+    const reason = restriction(auction, now);
+    const closed = auctionStatus(auction, now) === "Closed";
+    return <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline" size="sm" className="min-h-11"><Link to={`/auctions/${auction.id}`}>{closed ? "View history" : "View"}</Link></Button>
+        <Button size="sm" className="min-h-11" disabled={!!reason || busy || loading} onClick={() => startEdit(auction)}>Edit</Button>
+        <Button size="sm" className="min-h-11" variant="destructive" disabled={!!reason || busy || loading} onClick={() => void handleAction(auction, "delete")}>Delete</Button>
+        {!closed && <Button size="sm" className="min-h-11" variant="outline" disabled={busy || loading} onClick={() => void handleAction(auction, "close")}>Close</Button>}
+      </div>
+      {reason && <p className="text-xs text-muted-foreground">{reason}</p>}
+    </div>;
+  };
+
   return (
-    <Card className="p-4">
-      <CardContent>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Auction Management</h2>
-          <Button onClick={startCreate}>+ New Auction</Button>
+    <Card className="m-3 min-w-0 sm:m-6">
+      <CardContent className="space-y-4 p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-bold">Auction Management</h1>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" disabled={loading || busy} onClick={() => void fetchAll()}>Refresh</Button>
+            <Button disabled={loading || busy || !!loadError} onClick={startCreate}>+ New Auction</Button>
+          </div>
         </div>
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Start Price</TableHead>
-              <TableHead>Current Price</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {auctions.map(a => (
-              <TableRow key={a.id}>
-                <TableCell>{a.title}</TableCell>
-                <TableCell>{a.startPrice.toLocaleString()}</TableCell>
-                <TableCell>{a.currentPrice.toLocaleString()}</TableCell>
-                <TableCell>{a.categoryName ?? "—"}</TableCell>
-                <TableCell><Badge>{a.status}</Badge></TableCell>
-                <TableCell className="space-x-2">
-                  <Button size="sm" onClick={() => startEdit(a)}>Edit</Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleDelete(a.id)}>Delete</Button>
-                  {a.status !== "Closed" && <Button size="sm" variant="outline" onClick={() => handleClose(a.id)}>Close</Button>}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-
-        {/* Dialog */}
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent>
+        <p className="text-sm text-muted-foreground">Edit or delete auctions before they start and before any bids are placed. Closed auctions remain available as history.</p>
+        {notice && <p role="status" className="text-sm">{notice}</p>}
+        {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
+        {loadError && <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-destructive">
+          <span>{loadError}</span><Button variant="outline" disabled={loading} onClick={() => void fetchAll()}>Retry</Button>
+        </div>}
+        {loading && <p role="status">Loading auctions...</p>}
+        {!loading && !loadError && auctions.length === 0 && <p className="text-muted-foreground">No auctions yet. Create an auction to get started.</p>}
+        {auctions.length > 0 && <>
+          <div className="space-y-4 md:hidden">
+            {auctions.map(auction => <article key={auction.id} aria-label={auction.title} className="min-w-0 space-y-3 rounded-lg border p-3 [overflow-wrap:anywhere]">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <h2 className="min-w-0 flex-1 font-semibold">{auction.title}</h2><Badge>{auctionStatus(auction, now)}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">{categoryName(auction)}</p>
+              <dl className="grid grid-cols-2 gap-3 text-sm">
+                <div><dt className="text-muted-foreground">Start price</dt><dd>{auction.startPrice.toLocaleString()}</dd></div>
+                <div><dt className="text-muted-foreground">Current price</dt><dd>{auction.currentPrice.toLocaleString()}</dd></div>
+              </dl>
+              {actions(auction)}
+            </article>)}
+          </div>
+          <div className="hidden min-w-0 md:block">
+            <Table className="min-w-[740px]">
+              <TableHeader><TableRow>
+                <TableHead>Title</TableHead><TableHead>Start Price</TableHead><TableHead>Current Price</TableHead>
+                <TableHead>Category</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>{auctions.map(auction => <TableRow key={auction.id}>
+                <TableCell className="max-w-64 [overflow-wrap:anywhere]">{auction.title}</TableCell>
+                <TableCell>{auction.startPrice.toLocaleString()}</TableCell><TableCell>{auction.currentPrice.toLocaleString()}</TableCell>
+                <TableCell className="max-w-48 [overflow-wrap:anywhere]">{categoryName(auction)}</TableCell>
+                <TableCell><Badge>{auctionStatus(auction, now)}</Badge></TableCell><TableCell>{actions(auction)}</TableCell>
+              </TableRow>)}</TableBody>
+            </Table>
+          </div>
+        </>}
+        <Dialog open={open} onOpenChange={value => { if (!actionInFlight.current) setOpen(value); }}>
+          <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-lg">
             <DialogHeader>
               <DialogTitle>{editingAuction ? "Edit Auction" : "New Auction"}</DialogTitle>
+              <DialogDescription>{editingAuction ? "Update this auction before bidding starts." : "Enter the details and schedule for the new auction."}</DialogDescription>
             </DialogHeader>
-
-            <div className="space-y-2">
-              <Input name="title" placeholder="Title" value={form.title} onChange={handleChange} />
-              <Input name="description" placeholder="Description" value={form.description} onChange={handleChange} />
-              <Input name="startPrice" type="number" placeholder="Start Price" value={String(form.startPrice)} onChange={handleChange} />
-              <Input name="startTime" type="datetime-local" value={form.startTime} onChange={handleChange} />
-              <Input name="endTime" type="datetime-local" value={form.endTime} onChange={handleChange} />
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Image</label>
-                <input type="file" accept="image/*" onChange={handleImageChange} className="w-full p-2 border rounded" />
-                {/* show existing url if any */}
-                {typeof form.imageFile === "string" && form.imageFile ? (
-                  <div className="text-sm text-muted-foreground mt-1">Using existing image: {form.imageFile}</div>
-                ) : null}
+            <form onSubmit={handleSave} className="min-w-0 space-y-3">
+              <fieldset disabled={busy} className="min-w-0 space-y-3">
+                <div><label htmlFor="auction-title" className="text-sm font-medium">Title</label>
+                  <Input id="auction-title" name="title" value={form.title} onChange={handleChange} required maxLength={200} /></div>
+                <div><label htmlFor="auction-description" className="text-sm font-medium">Description</label>
+                  <Textarea id="auction-description" name="description" value={form.description} onChange={handleChange} maxLength={10000} /></div>
+                <div><label htmlFor="auction-price" className="text-sm font-medium">Start price</label>
+                  <Input id="auction-price" name="startPrice" type="number" min="0.01" step="0.01" value={form.startPrice} onChange={handleChange} required /></div>
+                <div><label htmlFor="auction-start" className="text-sm font-medium">Start time (your local time)</label>
+                  <Input id="auction-start" name="startTime" type="datetime-local" value={form.startTime} onChange={handleChange} required /></div>
+                <div><label htmlFor="auction-end" className="text-sm font-medium">End time (your local time)</label>
+                  <Input id="auction-end" name="endTime" type="datetime-local" value={form.endTime} onChange={handleChange} required /></div>
+                <div><label htmlFor="auction-image" className="text-sm font-medium">Image (optional)</label>
+                  <Input id="auction-image" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => setForm(previous => ({ ...previous, imageFile: event.target.files?.[0] ?? previous.imageFile }))} />
+                  {typeof form.imageFile === "string" && <p className="mt-1 text-xs text-muted-foreground">The existing image will be kept unless you choose a replacement.</p>}</div>
+                <div><label htmlFor="auction-category" className="text-sm font-medium">Category</label>
+                  <select id="auction-category" name="categoryId" value={form.categoryId} onChange={handleChange} className="min-h-11 w-full rounded border bg-background p-2 text-sm">
+                    <option value="">Uncategorized</option>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                  </select></div>
+              </fieldset>
+              {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={busy}>{busy ? "Saving..." : "Save"}</Button>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Category</label>
-                <select name="categoryId" value={form.categoryId} onChange={handleChange} className="w-full p-2 border rounded">
-                  <option value="">-- Select Category --</option>
-                  {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end mt-4 space-x-2">
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={handleSave}>Save</Button>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
       </CardContent>

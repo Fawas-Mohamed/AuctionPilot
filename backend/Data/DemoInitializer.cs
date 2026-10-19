@@ -38,7 +38,7 @@ public static class DemoInitializer
             // Never promote an existing account by changing an environment variable.
             if (existing == null)
             {
-                var admin = new ApplicationUser { UserName = email, Email = email, DisplayName = "Demo Administrator" };
+                var admin = new ApplicationUser { UserName = email, Email = email, DisplayName = "Administrator" };
                 Require(await users.CreateAsync(admin, password));
                 Require(await users.AddToRoleAsync(admin, "Admin"));
             }
