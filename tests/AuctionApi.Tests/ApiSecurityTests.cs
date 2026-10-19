@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http.Connections;
+﻿using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using System.Net;
@@ -239,6 +239,26 @@ public class ApiSecurityTests : PostgresDatabase
         await admin.PatchAsync("/api/admin/users/" + account.Id + "/block", null);
         await closed.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal(HubConnectionState.Disconnected, connection.State);
+    }
+
+    [PostgresFact]
+    public async Task Offline_created_admin_can_sign_in_and_access_existing_admin_API()
+    {
+        using var client = Client();
+        await using (var scope = factory!.Services.CreateAsyncScope())
+        {
+            var operation = new AuctionPilot.AdminRecovery.AdminResetOperation(
+                scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(),
+                scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<AuctionApi.Models.ApplicationUser>>(),
+                scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.RoleManager<Microsoft.AspNetCore.Identity.IdentityRole>>());
+            Assert.True((await operation.CreateAdminAsync("new-admin@example.invalid", "SyntheticOnly!456")).Succeeded);
+        }
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { email = "new-admin@example.invalid", password = "SyntheticOnly!456" });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(new[] { "Admin" }, body.GetProperty("user").GetProperty("roles").EnumerateArray().Select(role => role.GetString()).ToArray());
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.GetProperty("token").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/admin/users")).StatusCode);
     }
 
     public override async Task DisposeAsync()
