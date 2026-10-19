@@ -5,7 +5,7 @@ import {
   Dialog, DialogDescription, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { SheetContent } from "@/components/ui/sheet";
-import { Gavel, Search, Heart, LogOut, ChevronDown, MoreHorizontal, Sun, Moon } from "lucide-react";
+import { Gavel, Search, Heart, LogOut, ChevronDown, Menu, Sun, Moon } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -165,8 +165,8 @@ export const Header: React.FC<HeaderProps> = ({ children }) => {
               }}>
                 <DialogTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="Open navigation menu"
-                    className="h-11 w-11 xl:hidden">
-                    <MoreHorizontal className="h-6 w-6" />
+                    className="h-11 w-11 xl:hidden [&_svg]:size-6">
+                    <Menu className="h-6 w-6" strokeWidth={3} aria-hidden="true" />
                   </Button>
                 </DialogTrigger>
                 <SheetContent>
