@@ -15,6 +15,8 @@ export function createAuctionConnection(): HubConnection {
         .withUrl(SIGNALR_URL, { accessTokenFactory: () => localStorage.getItem("token") || "" })
         .withAutomaticReconnect([0, 5000, 15000, 30000])
         .configureLogging(LogLevel.Warning).build();
+    connection.on("AuctionUpdated", refreshViews);
+    connection.on("AuctionDeleted", refreshViews);
     const rooms = new Set<string>();
     const originalInvoke = connection.invoke.bind(connection);
     connection.invoke = async <T = any>(method: string, ...args: any[]): Promise<T> => {

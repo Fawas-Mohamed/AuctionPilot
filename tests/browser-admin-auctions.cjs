@@ -19,7 +19,7 @@ assert(["localhost", "127.0.0.1"].includes(new URL(base).hostname), "Admin fixtu
   page.on("console", message => { if (/Missing.*Description|aria-describedby/.test(message.text())) report.dialogWarnings.push(message.text()); });
   const now = Date.now();
   const future = offset => new Date(now + offset * 60000).toISOString();
-  const lot = { description: "Synthetic auction", startPrice: 10.25, currentPrice: 10.25, startTime: future(60), endTime: future(120), status: 1, isClosed: false, bidCount: 0, categoryId: 1, imageUrl: null };
+  const lot = { description: "Synthetic auction", startPrice: 10.25, currentPrice: 10.25, startTime: future(60), endTime: future(120), status: 1, isClosed: false, bidCount: 0, reservePrice: 15, categoryId: 1, imageUrl: null };
   let auctions = [
     { ...lot, id: 101, title: "Scheduled lot", imageUrl: "https://res.cloudinary.com/demo/image/upload/kept.png" },
     { ...lot, id: 102, title: "Live lot", startTime: future(-60), status: 2 },
@@ -62,14 +62,17 @@ assert(["localhost", "127.0.0.1"].includes(new URL(base).hostname), "Admin fixtu
       const id = Number(path.split("/")[4]);
       if (conflict) {
         const auction = auctions.find(a => a.id === id);
-        if (auction) { auction.isClosed = true; auction.status = 3; }
-        status = 409; data = { message: "Auction history must be retained; only unstarted auctions without bids can be deleted." };
+        if (auction) auctions = auctions.filter(a => a.id !== id);
+        status = 404; data = { message: "This auction was already deleted." };
       } else if (saveError) {
         status = 400; data = { errors: { Title: ["Synthetic title validation failed."] } };
       } else if (method === "POST") {
         data = { ...lot, ...payload, id: 200 }; auctions.unshift(data); status = 201;
       } else if (method === "PUT") {
-        const auction = auctions.find(a => a.id === id); Object.assign(auction, payload); data = auction;
+        const auction = auctions.find(a => a.id === id); Object.assign(auction, payload);
+        if (payload.reopen) { auction.isClosed = false; auction.status = Date.parse(auction.startTime) <= Date.now() ? 2 : 1; }
+        if (Date.parse(auction.endTime) <= Date.now()) { auction.isClosed = true; auction.status = 3; }
+        data = auction;
       } else if (method === "DELETE") {
         auctions = auctions.filter(a => a.id !== id); status = 204; data = null;
       } else if (method === "PATCH") {
@@ -94,8 +97,8 @@ assert(["localhost", "127.0.0.1"].includes(new URL(base).hostname), "Admin fixtu
       const local = offset => { const d = new Date(Date.now() + offset * 60000); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
       return [local(60), local(120)];
     });
-    await dialog.getByLabel("Start time", { exact: false }).fill(times[0]);
-    await dialog.getByLabel("End time", { exact: false }).fill(times[1]);
+    await dialog.getByLabel("Start time (your local time)", { exact: true }).fill(times[0]);
+    await dialog.getByLabel("End time (your local time)", { exact: true }).fill(times[1]);
     await dialog.getByLabel("Category", { exact: true }).selectOption("1");
     return times;
   }
@@ -114,19 +117,17 @@ assert(["localhost", "127.0.0.1"].includes(new URL(base).hostname), "Admin fixtu
     await page.setViewportSize({ width: 376, height: 608 });
     for (const [title, status] of [["Live lot", "Live"], ["Closed early lot", "Closed"], ["Elapsed lot", "Closed"], ["Legacy closed lot", "Closed"], ["Numeric closed lot", "Closed"], ["Draft lot", "Draft"]]) {
       await card(title).getByText(status, { exact: true }).waitFor();
-      if (title !== "Draft lot") {
-        assert(await card(title).getByRole("button", { name: "Edit", exact: true }).isDisabled());
-        assert(await card(title).getByRole("button", { name: "Delete", exact: true }).isDisabled());
-      }
+      assert(await card(title).getByRole("button", { name: "Edit", exact: true }).isEnabled());
+      assert(await card(title).getByRole("button", { name: "Delete", exact: true }).isEnabled());
       if (status === "Closed") {
         assert.equal(await card(title).getByRole("button", { name: "Close", exact: true }).count(), 0);
         assert.match(await card(title).getByRole("link", { name: "View history", exact: true }).getAttribute("href"), /^\/auctions\//);
       }
     }
-    assert(await card("Lot with bids").getByRole("button", { name: "Delete", exact: true }).isDisabled());
+    assert(await card("Lot with bids").getByRole("button", { name: "Delete", exact: true }).isEnabled());
     assert(await card("Draft lot").getByRole("button", { name: "Edit", exact: true }).isEnabled());
     assert.equal(writes.length, 0);
-    pass("Numeric, legacy, elapsed and early closed states retain history; bid-bearing auctions are protected");
+    pass("Admins can edit and delete scheduled, live, closed, elapsed and bid-bearing auctions");
 
     await card("Scheduled lot").getByRole("button", { name: "Edit", exact: true }).click();
     assert.equal(await dialog.getByLabel("Start price", { exact: true }).inputValue(), "10.25");
@@ -135,18 +136,61 @@ assert(["localhost", "127.0.0.1"].includes(new URL(base).hostname), "Admin fixtu
     await dialog.waitFor({ state: "hidden" });
     const update = writes.find(w => w.method === "PUT");
     assert.equal(update.path, "/api/admin/auctions/101");
-    assert.equal(update.payload.startTime, new Date(lot.startTime).toISOString().replace(/:\d{2}\.\d{3}Z$/, ":00.000Z"));
+    assert.equal(update.payload.startTime, new Date(Math.floor(Date.parse(lot.startTime) / 1000) * 1000).toISOString());
+    assert.equal(update.payload.reservePrice, 15);
+    assert.equal(update.payload.reopen, false);
     assert.equal(update.payload.imageUrl, "https://res.cloudinary.com/demo/image/upload/kept.png");
     await card("Updated scheduled lot").waitFor();
-    pass("Editing retains existing image and round-trips Colombo local times to UTC");
+    pass("Editing retains existing image and reserve and round-trips Colombo local times to UTC");
+
+    await card("Live lot").getByRole("button", { name: "Edit", exact: true }).click();
+    const originalEnd = await dialog.getByLabel("End time (your local time)", { exact: true }).inputValue();
+    await dialog.getByRole("button", { name: "+60 min", exact: true }).click();
+    const extendedEnd = await dialog.getByLabel("End time (your local time)", { exact: true }).inputValue();
+    assert.equal(Date.parse(extendedEnd) - Date.parse(originalEnd), 3600000);
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    await card("Live lot").getByRole("button", { name: "Edit", exact: true }).click();
+    await dialog.getByRole("button", { name: "-15 min", exact: true }).click();
+    assert.equal(Date.parse(extendedEnd) - Date.parse(await dialog.getByLabel("End time (your local time)", { exact: true }).inputValue()), 900000);
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    pass("Admins extend and shorten live auction duration using the quick controls");
+
+    await card("Elapsed lot").getByRole("button", { name: "Edit", exact: true }).click();
+    await dialog.getByLabel("Title", { exact: true }).fill("Corrected historical lot");
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    await card("Corrected historical lot").getByText("Closed", { exact: true }).waitFor();
+    await card("Corrected historical lot").getByRole("button", { name: "Edit", exact: true }).click();
+    await dialog.getByRole("checkbox", { name: /Reopen auction/ }).check();
+    const writesBeforeReopen = writes.length;
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await dialog.getByRole("alert").getByText("Choose a future end time to reopen the auction.", { exact: true }).waitFor();
+    assert.equal(writes.length, writesBeforeReopen);
+    await dialog.getByLabel("End time (your local time)", { exact: true }).fill(await page.evaluate(() => {
+      const d = new Date(Date.now() + 3600000); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+    }));
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    await card("Corrected historical lot").getByText("Live", { exact: true }).waitFor();
+    pass("Historical edits accept past dates and explicit reopening requires a future end time");
+
+    page.once("dialog", prompt => prompt.accept());
+    await card("Closed early lot").getByRole("button", { name: "Delete", exact: true }).click();
+    await card("Closed early lot").waitFor({ state: "hidden" });
+    page.once("dialog", prompt => prompt.accept());
+    await card("Lot with bids").getByRole("button", { name: "Delete", exact: true }).click();
+    await card("Lot with bids").waitFor({ state: "hidden" });
+    pass("Admins can delete closed auctions and auctions with bids");
 
     const times = await fillNew("New synthetic lot");
-    await dialog.getByLabel("End time", { exact: false }).fill(times[0]);
+    await dialog.getByLabel("End time (your local time)", { exact: true }).fill(times[0]);
     const beforeInvalid = writes.length;
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await dialog.getByRole("alert").getByText("The end time must be after the start time and in the future.").waitFor();
     assert.equal(writes.length, beforeInvalid);
-    await dialog.getByLabel("End time", { exact: false }).fill(times[1]);
+    await dialog.getByLabel("End time (your local time)", { exact: true }).fill(times[1]);
     saveError = true;
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await dialog.getByRole("alert").getByText("Synthetic title validation failed.").waitFor();
@@ -170,7 +214,7 @@ assert(["localhost", "127.0.0.1"].includes(new URL(base).hostname), "Admin fixtu
 
     page.once("dialog", prompt => prompt.dismiss());
     await card("New synthetic lot").getByRole("button", { name: "Delete", exact: true }).click();
-    assert(!writes.some(w => w.method === "DELETE"));
+    assert(!writes.some(w => w.method === "DELETE" && w.path === "/api/admin/auctions/200"));
     page.once("dialog", prompt => prompt.accept());
     await card("New synthetic lot").getByRole("button", { name: "Delete", exact: true }).click();
     await card("New synthetic lot").waitFor({ state: "hidden" });
@@ -184,11 +228,10 @@ assert(["localhost", "127.0.0.1"].includes(new URL(base).hostname), "Admin fixtu
     conflict = true;
     page.once("dialog", prompt => prompt.accept());
     await card("Updated scheduled lot").getByRole("button", { name: "Delete", exact: true }).click();
-    await page.getByRole("alert").getByText("Auction history must be retained; only unstarted auctions without bids can be deleted.", { exact: true }).waitFor();
-    await card("Updated scheduled lot").getByText("Closed", { exact: true }).waitFor();
-    assert(await card("Updated scheduled lot").getByRole("button", { name: "Delete", exact: true }).isDisabled());
+    await page.getByRole("alert").getByText("This auction was already deleted.", { exact: true }).waitFor();
+    await card("Updated scheduled lot").waitFor({ state: "hidden" });
     conflict = false;
-    pass("A stale action displays the actual 409 reason and refreshes the auction's closed state");
+    pass("An already deleted auction displays the server error and refreshes the list");
 
     listError = true;
     await page.getByRole("button", { name: "Refresh", exact: true }).click();

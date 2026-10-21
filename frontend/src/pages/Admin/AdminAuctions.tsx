@@ -17,6 +17,7 @@ type Auction = {
   description?: string;
   startPrice: number;
   currentPrice: number;
+  reservePrice?: number | null;
   startTime: string;
   endTime: string;
   status?: number | string;
@@ -28,7 +29,7 @@ type Auction = {
 };
 
 const emptyForm = {
-  title: "", description: "", startPrice: "", startTime: "", endTime: "",
+  title: "", description: "", startPrice: "", reservePrice: "", startTime: "", endTime: "", reopen: false,
   imageFile: null as File | string | null, categoryId: ""
 };
 
@@ -39,16 +40,9 @@ function auctionStatus(auction: Auction, now: number) {
   return Date.parse(auction.startTime) <= now ? "Live" : "Scheduled";
 }
 
-function restriction(auction: Auction, now: number) {
-  if (auctionStatus(auction, now) === "Closed") return "Closed auctions are retained as history.";
-  if (auction.bidCount > 0) return "Auctions with bids cannot be edited or deleted.";
-  if (!(Date.parse(auction.startTime) > now)) return "Only auctions that have not started can be edited or deleted.";
-  return null;
-}
-
 function localTime(value: string) {
   const date = new Date(value);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -102,11 +96,10 @@ export default function AdminAuctions() {
   };
 
   const startEdit = (auction: Auction) => {
-    const reason = restriction(auction, Date.now());
-    if (reason) { setActionError(reason); return; }
     setEditingAuction(auction);
     setForm({
       title: auction.title, description: auction.description ?? "", startPrice: String(auction.startPrice),
+      reservePrice: auction.reservePrice == null ? "" : String(auction.reservePrice), reopen: false,
       startTime: localTime(auction.startTime), endTime: localTime(auction.endTime),
       imageFile: auction.imageUrl ?? null, categoryId: auction.categoryId ? String(auction.categoryId) : ""
     });
@@ -123,12 +116,11 @@ export default function AdminAuctions() {
     if (!form.title.trim() || !Number.isFinite(Number(form.startPrice)) || Number(form.startPrice) <= 0) {
       setFormError("Enter a title and a positive start price."); return;
     }
-    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime || endTime <= Date.now()) {
-      setFormError("The end time must be after the start time and in the future."); return;
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime || (!editingAuction && endTime <= Date.now())) {
+      setFormError(editingAuction ? "The end time must be after the start time." : "The end time must be after the start time and in the future."); return;
     }
-    if (editingAuction) {
-      const reason = restriction(editingAuction, Date.now());
-      if (reason) { setFormError(reason); return; }
+    if (form.reopen && endTime <= Date.now()) {
+      setFormError("Choose a future end time to reopen the auction."); return;
     }
     actionInFlight.current = true;
     setBusy(true);
@@ -147,6 +139,7 @@ export default function AdminAuctions() {
       }
       const payload = {
         title: form.title.trim(), description: form.description, startPrice: Number(form.startPrice),
+        reservePrice: form.reservePrice === "" ? null : Number(form.reservePrice), reopen: form.reopen,
         startTime: new Date(startTime).toISOString(), endTime: new Date(endTime).toISOString(),
         imageUrl, categoryId: form.categoryId ? Number(form.categoryId) : null
       };
@@ -167,11 +160,7 @@ export default function AdminAuctions() {
 
   const handleAction = async (auction: Auction, action: "delete" | "close") => {
     if (actionInFlight.current) return;
-    if (action === "delete") {
-      const reason = restriction(auction, Date.now());
-      if (reason) { setActionError(reason); return; }
-    }
-    const prompt = action === "delete" ? `Delete "${auction.title}"? This cannot be undone.`
+    const prompt = action === "delete" ? `Delete "${auction.title}" and all its bid history? This cannot be undone.`
       : `Close "${auction.title}" now? Bidding will end and the result will be final.`;
     if (!window.confirm(prompt)) return;
     actionInFlight.current = true;
@@ -203,16 +192,14 @@ export default function AdminAuctions() {
     ?? categories.find(category => category.id === auction.categoryId)?.name ?? "Uncategorized";
 
   const actions = (auction: Auction) => {
-    const reason = restriction(auction, now);
     const closed = auctionStatus(auction, now) === "Closed";
     return <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline" size="sm" className="min-h-11"><Link to={`/auctions/${auction.id}`}>{closed ? "View history" : "View"}</Link></Button>
-        <Button size="sm" className="min-h-11" disabled={!!reason || busy || loading} onClick={() => startEdit(auction)}>Edit</Button>
-        <Button size="sm" className="min-h-11" variant="destructive" disabled={!!reason || busy || loading} onClick={() => void handleAction(auction, "delete")}>Delete</Button>
+        <Button size="sm" className="min-h-11" disabled={busy || loading || !!loadError} onClick={() => startEdit(auction)}>Edit</Button>
+        <Button size="sm" className="min-h-11" variant="destructive" disabled={busy || loading || !!loadError} onClick={() => void handleAction(auction, "delete")}>Delete</Button>
         {!closed && <Button size="sm" className="min-h-11" variant="outline" disabled={busy || loading} onClick={() => void handleAction(auction, "close")}>Close</Button>}
       </div>
-      {reason && <p className="text-xs text-muted-foreground">{reason}</p>}
     </div>;
   };
 
@@ -226,7 +213,7 @@ export default function AdminAuctions() {
             <Button disabled={loading || busy || !!loadError} onClick={startCreate}>+ New Auction</Button>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">Edit or delete auctions before they start and before any bids are placed. Closed auctions remain available as history.</p>
+        <p className="text-sm text-muted-foreground">As an administrator, you can edit or delete any auction, extend or shorten its duration, and reopen closed auctions. Editing keeps existing bids; deleting removes the auction and its bid history.</p>
         {notice && <p role="status" className="text-sm">{notice}</p>}
         {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
         {loadError && <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-destructive">
@@ -245,6 +232,7 @@ export default function AdminAuctions() {
                 <div><dt className="text-muted-foreground">Start price</dt><dd>{auction.startPrice.toLocaleString()}</dd></div>
                 <div><dt className="text-muted-foreground">Current price</dt><dd>{auction.currentPrice.toLocaleString()}</dd></div>
               </dl>
+              <p className="text-xs text-muted-foreground">Ends: {new Date(auction.endTime).toLocaleString()}</p>
               {actions(auction)}
             </article>)}
           </div>
@@ -267,7 +255,7 @@ export default function AdminAuctions() {
           <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-lg">
             <DialogHeader>
               <DialogTitle>{editingAuction ? "Edit Auction" : "New Auction"}</DialogTitle>
-              <DialogDescription>{editingAuction ? "Update this auction before bidding starts." : "Enter the details and schedule for the new auction."}</DialogDescription>
+              <DialogDescription>{editingAuction ? "Edit auction details and start/end times. Existing bids are kept. Closed auctions stay closed unless you select Reopen auction." : "Enter the details and schedule for the new auction."}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSave} className="min-w-0 space-y-3">
               <fieldset disabled={busy} className="min-w-0 space-y-3">
@@ -277,10 +265,22 @@ export default function AdminAuctions() {
                   <Textarea id="auction-description" name="description" value={form.description} onChange={handleChange} maxLength={10000} /></div>
                 <div><label htmlFor="auction-price" className="text-sm font-medium">Start price</label>
                   <Input id="auction-price" name="startPrice" type="number" min="0.01" step="0.01" value={form.startPrice} onChange={handleChange} required /></div>
+                <div><label htmlFor="auction-reserve" className="text-sm font-medium">Reserve price (optional)</label>
+                  <Input id="auction-reserve" name="reservePrice" type="number" min="0" step="0.01" value={form.reservePrice} onChange={handleChange} /></div>
                 <div><label htmlFor="auction-start" className="text-sm font-medium">Start time (your local time)</label>
-                  <Input id="auction-start" name="startTime" type="datetime-local" value={form.startTime} onChange={handleChange} required /></div>
+                  <Input id="auction-start" name="startTime" type="datetime-local" step="1" value={form.startTime} onChange={handleChange} required /></div>
                 <div><label htmlFor="auction-end" className="text-sm font-medium">End time (your local time)</label>
-                  <Input id="auction-end" name="endTime" type="datetime-local" value={form.endTime} onChange={handleChange} required /></div>
+                  <Input id="auction-end" name="endTime" type="datetime-local" step="1" value={form.endTime} onChange={handleChange} required /></div>
+                {editingAuction && <div className="flex flex-wrap gap-2" aria-label="Adjust auction duration">
+                  {[-60, -15, 15, 60].map(minutes => <Button key={minutes} type="button" variant="outline" size="sm" onClick={() => {
+                    const end = Date.parse(form.endTime);
+                    if (Number.isFinite(end)) setForm(previous => ({ ...previous, endTime: localTime(new Date(end + minutes * 60000).toISOString()) }));
+                  }}>{minutes > 0 ? "+" : "-"}{Math.abs(minutes)} min</Button>)}
+                </div>}
+                {editingAuction && auctionStatus(editingAuction, now) === "Closed" && <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" className="mt-1" checked={form.reopen} onChange={event => setForm(previous => ({ ...previous, reopen: event.target.checked }))} />
+                  <span>Reopen auction<span className="block text-xs text-muted-foreground">Choose a future end time to resume bidding. The previous result is cleared and existing bids are kept.</span></span>
+                </label>}
                 <div><label htmlFor="auction-image" className="text-sm font-medium">Image (optional)</label>
                   <Input id="auction-image" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => setForm(previous => ({ ...previous, imageFile: event.target.files?.[0] ?? previous.imageFile }))} />
                   {typeof form.imageFile === "string" && <p className="mt-1 text-xs text-muted-foreground">The existing image will be kept unless you choose a replacement.</p>}</div>

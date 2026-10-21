@@ -17,16 +17,28 @@ public class AuctionResolver(ApplicationDbContext db, AuctionEvents events, Time
         var now = clock.GetUtcNow();
         if (!force && now < auction.EndTime) return new(true, false);
 
+        var notifications = await CloseLockedAsync(auction, now, ct);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        await events.ClosedAsync(auction, notifications);
+        return new(true, true);
+    }
+
+    // Caller must hold the auction row lock and commit before publishing events.
+    internal async Task<IReadOnlyList<Notification>> CloseLockedAsync(Auction auction, DateTimeOffset now, CancellationToken ct)
+    {
+        var auctionId = auction.Id;
         var topBid = await db.Bids.Where(b => b.AuctionId == auctionId)
             .OrderByDescending(b => b.Amount).ThenBy(b => b.Time).ThenBy(b => b.Id).FirstOrDefaultAsync(ct);
-        var reserveMet = topBid != null && (auction.ReservePrice == null || topBid.Amount >= auction.ReservePrice);
+        var reserveMet = topBid != null && topBid.Amount >= auction.StartPrice
+            && (auction.ReservePrice == null || topBid.Amount >= auction.ReservePrice);
         auction.WinnerId = reserveMet ? topBid!.BidderId : null;
         auction.WinnerUserId = auction.WinnerId;
-        auction.CurrentPrice = topBid?.Amount ?? auction.StartPrice;
+        auction.CurrentPrice = Math.Max(topBid?.Amount ?? auction.StartPrice, auction.StartPrice);
         auction.BidCount = await db.Bids.CountAsync(b => b.AuctionId == auctionId, ct);
         auction.IsClosed = true;
         auction.Status = AuctionStatus.Closed;
-        auction.ClosedAt = now;
+        auction.ClosedAt ??= now;
 
         var notifications = new List<Notification>();
         if (reserveMet)
@@ -38,13 +50,29 @@ public class AuctionResolver(ApplicationDbContext db, AuctionEvents events, Time
             notifications.Add(new Notification { UserId = auction.SellerId, AuctionId = auction.Id, EventKind = "seller",
                 Title = "Your demo auction closed",
                 Message = reserveMet ? $"'{auction.Title}' closed at LKR {topBid!.Amount:F2}. Demo only: no money is collected."
-                    : topBid == null ? $"'{auction.Title}' closed with no bids." : $"'{auction.Title}' closed without meeting its reserve.",
+                    : topBid == null ? $"'{auction.Title}' closed with no bids." : $"'{auction.Title}' closed without meeting its minimum price.",
                 CreatedAt = now.UtcDateTime });
-        // A notification failure fails the entire transaction. A retry cannot duplicate committed events.
-        db.Notifications.AddRange(notifications);
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-        await events.ClosedAsync(auction, notifications);
-        return new(true, true);
+        // Recalculate existing closure notices when an administrator edits a closed lot.
+        // Reuse matching rows so repeated edits cannot duplicate winner/seller notifications.
+        var existing = await db.Notifications.Where(n => n.AuctionId == auctionId
+            && (n.EventKind == "winner" || n.EventKind == "seller")).ToListAsync(ct);
+        var changed = new List<Notification>();
+        foreach (var notification in notifications)
+        {
+            var prior = existing.SingleOrDefault(n => n.UserId == notification.UserId && n.EventKind == notification.EventKind);
+            if (prior == null) { db.Notifications.Add(notification); changed.Add(notification); }
+            else
+            {
+                existing.Remove(prior);
+                if (prior.Title == notification.Title && prior.Message == notification.Message && prior.BidId == notification.BidId) continue;
+                prior.Title = notification.Title;
+                prior.Message = notification.Message;
+                prior.BidId = notification.BidId;
+                prior.IsRead = false;
+                changed.Add(prior);
+            }
+        }
+        db.Notifications.RemoveRange(existing);
+        return changed;
     }
 }

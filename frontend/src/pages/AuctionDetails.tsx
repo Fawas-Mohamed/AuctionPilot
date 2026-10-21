@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import { submitBid } from "@/lib/bidding";
 import { useServerRefresh } from "@/hooks/useServerRefresh";
 import { API_URL, SIGNALR_URL, BACKEND_ORIGIN, imageUrl } from "@/lib/config";
@@ -102,7 +103,16 @@ const AuctionDetails: React.FC = () => {
   
  
    // tick every 15 seconds to refresh displayed remaining times
-   useServerRefresh(async () => { if (id) { const [a,b] = await Promise.all([api.get("/auctions/" + id), api.get("/bids/" + id)]); setAuction(a.data); setRecentBids(b.data.slice(0,20)); } });
+   useServerRefresh(async () => {
+     if (!id) return;
+     try {
+       const [a, b] = await Promise.all([api.get("/auctions/" + id), api.get("/bids/" + id)]);
+       setAuction(a.data); setRecentBids(b.data.slice(0, 20));
+     } catch (error) {
+       if (isAxiosError(error) && error.response?.status === 404) { setAuction(null); setRecentBids([]); }
+       else throw error;
+     }
+   });
 
   useEffect(() => {
      const iv = setInterval(() => setTimeTick((t) => t + 1), 15000);
