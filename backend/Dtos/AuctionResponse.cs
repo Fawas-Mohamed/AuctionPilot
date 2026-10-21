@@ -10,6 +10,8 @@ public class AuctionResponse
     public string? ImageUrl { get; init; }
     public decimal StartPrice { get; init; }
     public decimal CurrentPrice { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? ReservePrice { get; init; }
     public DateTimeOffset StartTime { get; init; }
     public DateTimeOffset EndTime { get; init; }
     public DateTimeOffset? ClosedAt { get; init; }
@@ -24,10 +26,11 @@ public class AuctionResponse
     public SellerResponse? Seller { get; init; }
     public bool HasWinner { get; init; }
 
-    public static Expression<Func<Auction, AuctionResponse>> Select(DateTimeOffset now) => a => new AuctionResponse
+    public static Expression<Func<Auction, AuctionResponse>> Select(DateTimeOffset now, bool includeReservePrice = false) => a => new AuctionResponse
     {
         Id = a.Id, Title = a.Title, Description = a.Description, ImageUrl = a.ImageUrl,
         StartPrice = a.StartPrice, CurrentPrice = a.CurrentPrice,
+        ReservePrice = includeReservePrice ? a.ReservePrice : null,
         StartTime = a.StartTime, EndTime = a.EndTime, ClosedAt = a.ClosedAt,
         IsClosed = a.IsClosed, Status = a.IsClosed ? AuctionStatus.Closed :
             a.Status == AuctionStatus.Draft ? AuctionStatus.Draft :

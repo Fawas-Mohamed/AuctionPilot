@@ -26,6 +26,8 @@ public class AuctionEvents(IHubContext<AuctionHub> hub, ILogger<AuctionEvents> l
             { n.Id, n.Title, n.Message, n.IsRead, n.CreatedAt, n.AuctionId, n.BidId }));
     }
 
+    public Task UpdatedAsync(object payload) => SendAsync(() => hub.Clients.All.SendAsync("AuctionUpdated", payload));
+    public Task DeletedAsync(int id) => SendAsync(() => hub.Clients.All.SendAsync("AuctionDeleted", new { id, auctionId = id }));
     public Task CreatedAsync(object payload) => SendAsync(() => hub.Clients.All.SendAsync("AuctionCreated", payload));
 
     private async Task SendAsync(Func<Task> send)

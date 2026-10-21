@@ -96,14 +96,15 @@ public class AuctionsController(ApplicationDbContext db, BidService bids, Auctio
     }
 
     internal async Task<(string? Error, ImageAsset? Asset)> ValidateAsync(CreateAuctionDto dto, string ownerId, CancellationToken ct,
-        string? existingImage = null)
+        string? existingImage = null, bool allowPastEnd = false)
     {
         if (string.IsNullOrWhiteSpace(dto.Title) || dto.Title.Length > 200) return ("Enter a title of at most 200 characters.", null);
         if (!BidService.IsMoney(dto.StartPrice) || dto.StartPrice <= 0 ||
             (dto.ReservePrice != null && !BidService.IsMoney(dto.ReservePrice.Value)))
             return ("Prices must be positive amounts with at most two decimal places.", null);
-        if (dto.StartTime == default || dto.EndTime <= dto.StartTime || dto.EndTime <= clock.GetUtcNow())
-            return ("The end time must be after the start time and in the future.", null);
+        if (dto.StartTime == default || dto.EndTime <= dto.StartTime || (!allowPastEnd && dto.EndTime <= clock.GetUtcNow()))
+            return (allowPastEnd ? "The end time must be after the start time."
+                : "The end time must be after the start time and in the future.", null);
         if (dto.CategoryId != null && !await db.Categories.AnyAsync(c => c.Id == dto.CategoryId, ct))
             return ("Select a valid category.", null);
         if (string.IsNullOrEmpty(dto.ImageUrl) || dto.ImageUrl == existingImage) return (null, null);

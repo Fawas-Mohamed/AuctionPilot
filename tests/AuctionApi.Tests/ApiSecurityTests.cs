@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using System.Net;
@@ -259,6 +259,33 @@ public class ApiSecurityTests : PostgresDatabase
         Assert.Equal(new[] { "Admin" }, body.GetProperty("user").GetProperty("roles").EnumerateArray().Select(role => role.GetString()).ToArray());
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.GetProperty("token").GetString());
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/admin/users")).StatusCode);
+    }
+
+    [PostgresFact]
+    public async Task Full_auction_management_is_admin_only_and_reserve_prices_are_not_public()
+    {
+        using var anonymous = Client(); var account = await RegisterAsync(anonymous); using var user = Client(account.Token);
+        using var admin = Client(await AdminAsync(anonymous));
+        var id = await AuctionAsync(reserve: 15);
+        var dto = new AuctionApi.Dtos.AdminUpdateAuctionDto { Title = "Managed live lot", StartPrice = 10, ReservePrice = 15,
+            StartTime = DateTimeOffset.UtcNow.AddHours(-1), EndTime = DateTimeOffset.UtcNow.AddHours(2) };
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PutAsJsonAsync($"/api/admin/auctions/{id}", dto)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await user.PutAsJsonAsync($"/api/admin/auctions/{id}", dto)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.DeleteAsync($"/api/admin/auctions/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await user.DeleteAsync($"/api/admin/auctions/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await user.PatchAsync($"/api/admin/auctions/{id}/close", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await user.PostAsJsonAsync($"/api/auctions/{id}/placebid", new { amount = 20, requestId = Guid.NewGuid() })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/admin/auctions/{id}", dto)).StatusCode);
+        var privateLot = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/auctions/{id}");
+        Assert.Equal(15, privateLot.GetProperty("reservePrice").GetDecimal()); Assert.Equal(20, privateLot.GetProperty("currentPrice").GetDecimal());
+        var publicLot = await anonymous.GetFromJsonAsync<JsonElement>($"/api/auctions/{id}");
+        Assert.False(publicLot.TryGetProperty("reservePrice", out _));
+        Assert.Equal(HttpStatusCode.OK, (await admin.PatchAsync($"/api/admin/auctions/{id}/close", null)).StatusCode);
+        dto.Reopen = true;
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/admin/auctions/{id}", dto)).StatusCode);
+        publicLot = await anonymous.GetFromJsonAsync<JsonElement>($"/api/auctions/{id}"); Assert.False(publicLot.GetProperty("isClosed").GetBoolean());
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/admin/auctions/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync($"/api/auctions/{id}")).StatusCode);
     }
 
     public override async Task DisposeAsync()
